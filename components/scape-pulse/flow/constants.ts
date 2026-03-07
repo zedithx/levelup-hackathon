@@ -195,7 +195,7 @@ export const ENDING_CAROUSEL_DEFAULT_MEDIA: EndingCarouselMedia = {
     finalWord: "Moonwalk"
   },
   finalSong: {
-    audioSrc: "https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3",
+    audioSrc: "/music/bella-ciao.mp3",
     songTitle: "Bella Ciao",
     voiceContributors: ["Jun", "Tania", "Kai", "Mika"],
     backgroundTrackSrc: "/music/bella-ciao.mp3"
