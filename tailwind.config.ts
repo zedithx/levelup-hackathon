@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        body: ["var(--font-space-grotesk)", "sans-serif"],
+        display: ["var(--font-bebas-neue)", "sans-serif"]
+      },
       colors: {
         brand: {
           50: "#eef5ff",

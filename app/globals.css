@@ -3,9 +3,16 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  --surface-bg: #050505;
+  --surface-card: #1a1a1a;
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --pulse-orange: #ff6b00;
+  --pulse-cyan: #00d4ff;
+  --pulse-magenta: #ff3399;
+  --pulse-gold: #ffd700;
+  color-scheme: dark;
 }
 
 body {
-  @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+  @apply min-h-screen bg-[var(--surface-bg)] font-body text-white antialiased;
 }
