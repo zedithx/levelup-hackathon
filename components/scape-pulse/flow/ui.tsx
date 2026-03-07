@@ -91,7 +91,7 @@ export function PrimaryButton({
     <button
       aria-label={ariaLabel ?? label}
       className={cn(
-        "anim-elevate inline-flex h-[clamp(3.25rem,8vh,3.75rem)] items-center justify-center gap-2 rounded-2xl px-5 text-[clamp(1rem,4.5vw,1.125rem)] leading-7 tracking-[0.045em] transition-all duration-200 motion-safe:active:scale-[0.99]",
+        "anim-elevate btn-fit inline-flex h-[clamp(3.25rem,8vh,3.75rem)] items-center justify-center gap-2 rounded-2xl px-5 text-[clamp(1rem,4.5vw,1.125rem)] leading-7 tracking-[0.045em] transition-all duration-200 motion-safe:active:scale-[0.99]",
         "font-display",
         fullWidth ? "w-full" : "w-auto",
         disabled

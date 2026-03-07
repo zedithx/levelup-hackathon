@@ -150,8 +150,7 @@ export const RACE_FLOW_CONFIG: RaceFlowConfig = {
     name: "Checkpoint 1",
     imagePlaceholderSrc:
       "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.png",
-    targetMindFileSrc:
-      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.mind"
+    targetMindFileSrc: "/station-references/stations.mind"
   },
   dialogue: [
     {

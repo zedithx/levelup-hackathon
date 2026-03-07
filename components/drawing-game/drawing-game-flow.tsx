@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -23,6 +24,7 @@ import { activeLyricIndex, buildTurns, lyricLinesForTurn } from "@/components/dr
 const ACCENT_POOL = ["#ff6b00", "#00d4ff", "#ff3399", "#ffd700", "#ff8a3d", "#7dd3fc"];
 
 export function DrawingGameFlow() {
+  const router = useRouter();
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
   const [members, setMembers] = useState<DrawingGameMember[]>(DEFAULT_MEMBERS);
   const [countdownSec, setCountdownSec] = useState(PRE_GAME_COUNTDOWN_SEC);
@@ -265,5 +267,5 @@ export function DrawingGameFlow() {
     );
   }
 
-  return <SummaryScreen onBackToSetup={goToSetup} onReplay={startRound} turns={turns} />;
+  return <SummaryScreen onBackToSetup={goToSetup} onContinueToAr={() => router.push("/ar-experience")} turns={turns} />;
 }

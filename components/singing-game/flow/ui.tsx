@@ -23,7 +23,7 @@ export function FlowShell({ children, stepLabel }: FlowShellProps) {
         </header>
 
         <div className="h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <section className="anim-stagger flex min-h-[calc(100dvh-57px)] flex-col px-5 pb-5 pt-4 md:min-h-[795px]">
+        <section className="anim-stagger flex min-h-[calc(100dvh-57px)] flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 md:min-h-[795px]">
           {children}
         </section>
       </main>
@@ -56,7 +56,7 @@ export function PrimaryButton({ label, onClick, disabled, className }: PrimaryBu
   return (
     <button
       className={cn(
-        "anim-elevate h-[58px] w-full rounded-2xl font-display text-[clamp(1rem,4.4vw,1.12rem)] tracking-[0.045em]",
+        "anim-elevate btn-fit h-[58px] w-full rounded-2xl font-display text-[clamp(1rem,4.4vw,1.12rem)] tracking-[0.045em]",
         disabled ? "bg-[rgba(255,107,0,0.24)] text-white/30" : "bg-[#ff6b00] text-white hover:bg-[#ff7e24]",
         className
       )}
@@ -80,7 +80,7 @@ export function GhostButton({ label, onClick, disabled, className }: GhostButton
   return (
     <button
       className={cn(
-        "anim-elevate h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold",
+        "anim-elevate btn-fit h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-bold",
         disabled ? "text-white/20" : "text-white/70 hover:border-[#ff6b00]/40 hover:text-white",
         className
       )}

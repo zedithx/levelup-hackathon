@@ -135,7 +135,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
+      <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-2">
         <div className="anim-fade-up" style={reveal(40)}>
           <p className="text-xs tracking-[0.2em] text-[#ffd700]">FINAL DESTINATION REACHED</p>
           <h1 className="mt-2 font-display text-[clamp(1.95rem,8.6vw,2.35rem)] leading-none text-white">
@@ -290,7 +290,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
         <div className="anim-fade-up mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2" style={reveal(170)}>
           <button
             className={cn(
-              "h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
+              "anim-elevate btn-fit h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
               canMovePrevious
                 ? "border-white/20 text-white/75 hover:border-white/40 hover:text-white"
                 : "border-white/10 text-white/25"
@@ -303,7 +303,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
           </button>
 
           <button
-            className="h-11 rounded-[12px] border border-[#ff6b00]/40 px-4 text-xs tracking-[0.08em] text-[#ffb17d] transition-colors hover:border-[#ff6b00] hover:text-[#ffd5b6]"
+            className="anim-elevate btn-fit h-11 rounded-[12px] border border-[#ff6b00]/40 px-4 text-xs tracking-[0.08em] text-[#ffb17d] transition-colors hover:border-[#ff6b00] hover:text-[#ffd5b6]"
             onClick={() => setIsAutoPlaying((current) => !current)}
             type="button"
           >
@@ -312,7 +312,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
 
           <button
             className={cn(
-              "h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
+              "anim-elevate btn-fit h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
               canMoveNext
                 ? "border-white/20 text-white/75 hover:border-white/40 hover:text-white"
                 : "border-white/10 text-white/25"

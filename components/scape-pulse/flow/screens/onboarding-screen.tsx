@@ -16,7 +16,7 @@ export function OnboardingScreen({ slide, onNext, onSkip }: OnboardingScreenProp
       <BrandBar onSkip={onSkip} showSkip />
       <ProgressDots step={slide.progressStep} />
 
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
+      <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-2">
         <div className="flex flex-1 flex-col items-center justify-center">
           <div
             className="anim-fade-up relative mb-7 flex size-[min(28vw,7rem)] items-center justify-center rounded-3xl border"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -8,7 +9,7 @@ import { saveDanceMemoryAsset } from "@/lib/memory-assets";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const DANCE_TITLE = "Viral TikTok Team Dance";
-const MAX_RECORDING_SEC = 15;
+const FALLBACK_RECORDING_SEC = 15;
 const PRE_RECORD_COUNTDOWN_SEC = 3;
 const DANCE_RECORD_AUDIO_SRC = "/audio/dance.mp3";
 
@@ -55,18 +56,22 @@ function extensionFromVideoType(mimeType: string) {
 }
 
 export function DanceFlow() {
+  const router = useRouter();
   const [screen, setScreen] = useState<DanceScreen>("watch");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isPreparingCamera, setIsPreparingCamera] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [countdownSec, setCountdownSec] = useState<number | null>(null);
+  const [songDurationSec, setSongDurationSec] = useState(FALLBACK_RECORDING_SEC);
   const [recordingSec, setRecordingSec] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [recordingFile, setRecordingFile] = useState<File | null>(null);
+  const [needsReviewMusicOverlay, setNeedsReviewMusicOverlay] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const danceAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const reviewVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -74,6 +79,14 @@ export function DanceFlow() {
   const recordingIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
   const shouldOpenReviewAfterStopRef = useRef(false);
+
+  const recordingLimitSec = useMemo(() => {
+    if (!Number.isFinite(songDurationSec) || songDurationSec <= 0) {
+      return FALLBACK_RECORDING_SEC;
+    }
+
+    return Math.max(1, Math.round(songDurationSec));
+  }, [songDurationSec]);
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -142,6 +155,32 @@ export function DanceFlow() {
       return null;
     });
     setRecordingFile(null);
+    setNeedsReviewMusicOverlay(false);
+  }, []);
+
+  useEffect(() => {
+    const audioElement = danceAudioRef.current;
+
+    if (!audioElement) {
+      return;
+    }
+
+    const syncDurationFromAudio = () => {
+      if (!Number.isFinite(audioElement.duration) || audioElement.duration <= 0) {
+        return;
+      }
+
+      setSongDurationSec(audioElement.duration);
+    };
+
+    syncDurationFromAudio();
+    audioElement.addEventListener("loadedmetadata", syncDurationFromAudio);
+    audioElement.addEventListener("durationchange", syncDurationFromAudio);
+
+    return () => {
+      audioElement.removeEventListener("loadedmetadata", syncDurationFromAudio);
+      audioElement.removeEventListener("durationchange", syncDurationFromAudio);
+    };
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -244,6 +283,7 @@ export function DanceFlow() {
         return nextUrl;
       });
       setRecordingFile(nextFile);
+      setNeedsReviewMusicOverlay(true);
 
       setScreen("review");
       stopStream();
@@ -263,17 +303,18 @@ export function DanceFlow() {
     const startAt = Date.now();
     recordingIntervalRef.current = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - startAt) / 1000);
-      setRecordingSec(Math.min(elapsed, MAX_RECORDING_SEC));
+      setRecordingSec(Math.min(elapsed, recordingLimitSec));
     }, 200);
 
     stopTimeoutRef.current = window.setTimeout(() => {
       stopRecording();
-    }, MAX_RECORDING_SEC * 1000);
+    }, recordingLimitSec * 1000);
   }, [
     clearRecordingTimers,
     clearRecordingUrl,
     isRecording,
     playDanceAudio,
+    recordingLimitSec,
     screen,
     stopDanceAudio,
     stopRecording,
@@ -331,6 +372,7 @@ export function DanceFlow() {
         return nextUrl;
       });
       setRecordingFile(file);
+      setNeedsReviewMusicOverlay(false);
       setScreen("review");
       setCameraError(null);
     },
@@ -368,14 +410,6 @@ export function DanceFlow() {
     setIsSubmitting(false);
     setCameraError(null);
     setScreen("record");
-  }, [clearRecordingUrl]);
-
-  const restartFlow = useCallback(() => {
-    clearRecordingUrl();
-    setRecordingSec(0);
-    setIsSubmitting(false);
-    setCameraError(null);
-    setScreen("watch");
   }, [clearRecordingUrl]);
 
   useEffect(() => {
@@ -431,10 +465,43 @@ export function DanceFlow() {
       return 0;
     }
 
-    return Math.min(recordingSec / MAX_RECORDING_SEC, 1);
-  }, [isRecording, recordingSec]);
+    return Math.min(recordingSec / recordingLimitSec, 1);
+  }, [isRecording, recordingLimitSec, recordingSec]);
 
   const isCountdownActive = countdownSec !== null;
+
+  const syncReviewMusicToVideo = useCallback(
+    (shouldPlay: boolean) => {
+      if (!needsReviewMusicOverlay) {
+        stopDanceAudio();
+        return;
+      }
+
+      const reviewVideo = reviewVideoRef.current;
+      const audioElement = danceAudioRef.current;
+
+      if (!reviewVideo || !audioElement) {
+        return;
+      }
+
+      if (Math.abs(audioElement.currentTime - reviewVideo.currentTime) > 0.2) {
+        audioElement.currentTime = reviewVideo.currentTime;
+      }
+      audioElement.playbackRate = reviewVideo.playbackRate || 1;
+      audioElement.muted = reviewVideo.muted;
+      audioElement.volume = reviewVideo.volume;
+
+      if (shouldPlay) {
+        void audioElement.play().catch(() => {
+          // Browser autoplay policies may block programmatic playback.
+        });
+        return;
+      }
+
+      audioElement.pause();
+    },
+    [needsReviewMusicOverlay, stopDanceAudio]
+  );
 
   return (
     <div className="anim-ambient-bg min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,51,153,0.16),transparent_42%),#050505] md:px-6 md:py-8">
@@ -450,7 +517,8 @@ export function DanceFlow() {
           </span>
         </header>
         <div className="h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <section className="flex min-h-[calc(100dvh-57px)] flex-col px-5 pb-5 pt-4 md:min-h-[795px]">
+        <section className="flex min-h-[calc(100dvh-57px)] flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 md:min-h-[795px]">
+          <audio preload="auto" ref={danceAudioRef} src={DANCE_RECORD_AUDIO_SRC} />
           {screen === "watch" ? (
             <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
               <div className="text-center">
@@ -491,12 +559,11 @@ export function DanceFlow() {
 
           {screen === "record" ? (
             <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
-              <audio preload="auto" ref={danceAudioRef} src={DANCE_RECORD_AUDIO_SRC} />
               <Panel className="border-[#00d4ff]/35 bg-[rgba(0,212,255,0.09)]">
                 <p className="text-xs tracking-[0.14em] text-[#00d4ff]">TEAM RECORDING</p>
                 <p className="mt-2 text-sm leading-6 text-white/70">
-                  Press start when your full team is in frame. Recording begins after a 3-second countdown, then auto-stops after{" "}
-                  {MAX_RECORDING_SEC} seconds.
+                  Press start when your full team is in frame. Recording begins after a 3-second countdown, then auto-stops when
+                  the song ends.
                 </p>
               </Panel>
 
@@ -515,10 +582,10 @@ export function DanceFlow() {
                   <span>{isRecording ? "RECORDING" : isCountdownActive ? "COUNTDOWN" : "READY"}</span>
                   <span>
                     {isRecording
-                      ? `${formatTime(recordingSec)} / ${formatTime(MAX_RECORDING_SEC)}`
+                      ? `${formatTime(recordingSec)} / ${formatTime(recordingLimitSec)}`
                       : isCountdownActive
                         ? `Starts in ${countdownSec}s`
-                        : `MAX ${MAX_RECORDING_SEC}s`}
+                        : `SONG ${formatTime(recordingLimitSec)}`}
                   </span>
                 </div>
                 <div className="mt-2">
@@ -546,7 +613,7 @@ export function DanceFlow() {
                   }
                   onClick={isRecording ? stopRecording : () => void startRecording()}
                 />
-                <label className="block cursor-pointer rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-center text-xs text-white/65 hover:border-white/25">
+                <label className="anim-elevate btn-fit flex cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/5 text-xs text-white/65 hover:border-white/25">
                   Upload recorded video instead
                   <input accept="video/*" className="hidden" onChange={handleFileUploadFallback} type="file" />
                 </label>
@@ -566,7 +633,19 @@ export function DanceFlow() {
 
               {recordingUrl ? (
                 <div className="mt-4 overflow-hidden rounded-2xl border border-white/15 bg-[#121212]">
-                  <video className="aspect-[9/16] w-full bg-black object-cover" controls playsInline src={recordingUrl} />
+                  <video
+                    className="aspect-[9/16] w-full bg-black object-cover"
+                    controls
+                    onEnded={stopDanceAudio}
+                    onPause={() => syncReviewMusicToVideo(false)}
+                    onPlay={() => syncReviewMusicToVideo(true)}
+                    onRateChange={() => syncReviewMusicToVideo(!reviewVideoRef.current?.paused)}
+                    onSeeked={() => syncReviewMusicToVideo(!reviewVideoRef.current?.paused)}
+                    onVolumeChange={() => syncReviewMusicToVideo(!reviewVideoRef.current?.paused)}
+                    playsInline
+                    ref={reviewVideoRef}
+                    src={recordingUrl}
+                  />
                 </div>
               ) : (
                 <Panel className="mt-4">
@@ -599,12 +678,12 @@ export function DanceFlow() {
 
               <Panel className="mt-4">
                 <p className="text-sm leading-6 text-white/70">
-                  If you want a better score, you can run another take and submit again.
+                  The team dance is locked in. Continue to the AR camera view for the next experience.
                 </p>
               </Panel>
 
               <div className="mt-auto space-y-3">
-                <PrimaryButton label="Record another take" onClick={restartFlow} />
+                <PrimaryButton label="Continue to AR" onClick={() => router.push("/ar-experience")} />
                 <GhostButton className="h-10 w-full" label="Review current playback" onClick={() => setScreen("review")} />
               </div>
             </div>

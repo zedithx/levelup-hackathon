@@ -216,14 +216,14 @@ export function SelfieFlow() {
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
-              className="h-11 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white/80 transition-colors hover:border-[#ff6b00]/40 hover:text-white"
+              className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-[#ff6b00]/40 hover:text-white"
               onClick={openPicker}
               type="button"
             >
               {selfieFile ? "Replace Photo" : "Upload Photo"}
             </button>
             <button
-              className="h-11 rounded-xl border border-white/10 bg-[#111] px-3 text-sm font-bold text-white/70 transition-colors hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
+              className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-[#111] text-sm font-bold text-white/70 transition-colors hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
               disabled={!selfieFile}
               onClick={resetUpload}
               type="button"
@@ -273,14 +273,14 @@ export function SelfieFlow() {
           {isSuccessful ? (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
-                className="h-11 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white/80 transition-colors hover:border-white/25 hover:text-white"
-                onClick={resetUpload}
+                className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-white/25 hover:text-white"
+                onClick={() => router.push("/ar-experience")}
                 type="button"
               >
-                Play Again
+                Continue to AR
               </button>
               <button
-                className="h-11 rounded-xl border border-[#00d4ff]/35 bg-[#00d4ff]/20 px-3 text-sm font-bold text-[#b8f4ff] transition-colors hover:border-[#00d4ff]/60 hover:bg-[#00d4ff]/30"
+                className="anim-elevate btn-fit h-11 rounded-xl border border-[#00d4ff]/35 bg-[#00d4ff]/20 text-sm font-bold text-[#b8f4ff] transition-colors hover:border-[#00d4ff]/60 hover:bg-[#00d4ff]/30"
                 onClick={() => router.push("/")}
                 type="button"
               >

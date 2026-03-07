@@ -15,7 +15,7 @@ export function HandoffScreen({ gamemasterName, gamemasterAvatar, onPassPhone }:
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
-      <div className="flex flex-1 flex-col items-center px-5 pb-8 pt-5">
+      <div className="flex flex-1 flex-col items-center px-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-5">
         <div
           className="anim-fade-up relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]"
           style={reveal(70)}
@@ -43,7 +43,7 @@ export function HandoffScreen({ gamemasterName, gamemasterAvatar, onPassPhone }:
         </p>
 
         <button
-          className="anim-fade-up mb-8 inline-flex h-[38px] items-center gap-2 rounded-full border border-[rgba(255,107,0,0.32)] bg-[rgba(255,107,0,0.1)] px-5 text-[clamp(0.85rem,3.4vw,0.95rem)] leading-5 text-[#ff6b00] transition-colors hover:bg-[rgba(255,107,0,0.18)]"
+          className="anim-elevate btn-fit anim-fade-up mb-8 inline-flex h-[38px] items-center gap-2 rounded-full border border-[rgba(255,107,0,0.32)] bg-[rgba(255,107,0,0.1)] px-5 text-[clamp(0.85rem,3.4vw,0.95rem)] leading-5 text-[#ff6b00] transition-colors hover:bg-[rgba(255,107,0,0.18)]"
           onClick={onPassPhone}
           style={reveal(300)}
           type="button"

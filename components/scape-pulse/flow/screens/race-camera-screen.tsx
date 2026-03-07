@@ -14,7 +14,7 @@ type RaceCameraScreenProps = {
   dialogueStepIndex: number;
   onAdvanceDialogue: () => void;
   onBackToLobby: () => void;
-  onCheckpointMatched: () => void;
+  onCheckpointMatched: (targetIndex: number) => void;
 };
 
 export function RaceCameraScreen({
@@ -38,7 +38,7 @@ export function RaceCameraScreen({
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
-      <div className="flex flex-1 flex-col px-4 pb-5 pt-3">
+      <div className="flex flex-1 flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3">
         <div className="anim-fade-up mb-3 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2" style={reveal(40)}>
           <p className="text-[0.68rem] tracking-[0.18em] text-[#00d4ff]">{config.checkpoint.name.toUpperCase()}</p>
           <p className="text-xs text-white/40">
@@ -52,14 +52,15 @@ export function RaceCameraScreen({
 
         <div className="anim-fade-up relative h-[56dvh] min-h-[360px] max-h-[640px]" style={reveal(80)}>
           <MindARImageScene
-            onTargetFound={() => {
+            onTargetFound={(targetIndex) => {
               if (isCameraReady && dialogueComplete) {
-                onCheckpointMatched();
+                onCheckpointMatched(targetIndex);
               }
             }}
             onArReadyChange={setIsCameraReady}
             scanningEnabled={isCameraReady && dialogueComplete}
             targetMindFileSrc={checkpointTargetMindSrc}
+            targetIndexes={[0, 1, 2, 3]}
           />
 
           {isCameraReady && !dialogueComplete && activeDialogue ? (
@@ -90,7 +91,7 @@ export function RaceCameraScreen({
         </div>
 
         <button
-          className="anim-fade-up mt-3 h-11 w-full rounded-[12px] text-sm font-bold text-white/30 transition-colors hover:text-white/55"
+          className="anim-elevate btn-fit anim-fade-up mt-3 h-11 w-full rounded-[12px] text-sm font-bold text-white/30 transition-colors hover:text-white/55"
           onClick={onBackToLobby}
           style={reveal(160)}
           type="button"

@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DEFAULT_MEMBERS } from "@/components/drawing-game/flow/constants";
@@ -110,6 +111,7 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
 }
 
 export function DrawingRelayFlow() {
+  const router = useRouter();
   const [draftPlayers, setDraftPlayers] = useState<RelayPlayer[]>(() =>
     DEFAULT_LINEUP.map((player) => ({ ...player }))
   );
@@ -370,16 +372,6 @@ export function DrawingRelayFlow() {
   const beginFinalGuess = () => {
     setGuessInput("");
     setScreen({ kind: "final-guess", endsAt: Date.now() + GUESS_DURATION_SEC * 1000 });
-  };
-
-  const replay = () => {
-    setScreen({ kind: "setup" });
-    setDrawings([]);
-    setGuessInput("");
-    setRevealedGuess("");
-    setIsUploadingDrawings(false);
-    setDrawingsUploadError(null);
-    setDrawingsUploadDone(false);
   };
 
   const secondsLeft = timer ? Math.max(0, Math.ceil(timer.remainingMs / 1000)) : 0;
@@ -686,7 +678,7 @@ export function DrawingRelayFlow() {
           </Panel>
 
           <div className="mt-4">
-            <PrimaryButton label="Play again" onClick={replay} />
+            <PrimaryButton label="Continue to AR" onClick={() => router.push("/ar-experience")} />
           </div>
         </div>
       ) : null}
