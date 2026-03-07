@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
+import { MindARImageScene } from "@/components/scape-pulse/mindar-image-scene";
 
 type FlowScreen =
   | "intro-1"
@@ -11,7 +12,10 @@ type FlowScreen =
   | "class-code"
   | "profile"
   | "handoff"
-  | "lobby";
+  | "lobby"
+  | "camera-permission"
+  | "ar-race"
+  | "checkpoint-cleared";
 
 type OnboardingSlide = {
   id: Extract<FlowScreen, "intro-1" | "intro-2" | "intro-3" | "intro-4">;
@@ -36,6 +40,23 @@ type TeamMember = {
   name: string;
   role: "Gamemaster" | "Teammate";
   isLeader?: boolean;
+};
+
+type RaceDialogueStep = {
+  id: string;
+  speaker: string;
+  message: string;
+  ctaLabel: string;
+};
+
+type RaceFlowConfig = {
+  mascotName: string;
+  checkpoint: {
+    name: string;
+    imagePlaceholderSrc: string;
+    targetMindFileSrc: string;
+  };
+  dialogue: RaceDialogueStep[];
 };
 
 const ASSETS = {
@@ -178,8 +199,38 @@ const LOBBY_AVATAR_CHOICES = [
   "🎮"
 ];
 
+const RACE_FLOW_CONFIG: RaceFlowConfig = {
+  mascotName: "Pingo",
+  checkpoint: {
+    name: "Checkpoint 1",
+    imagePlaceholderSrc:
+      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.png",
+    targetMindFileSrc:
+      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.mind"
+  },
+  dialogue: [
+    {
+      id: "pingo-intro",
+      speaker: "Pingo",
+      message: "Race start! I am Pingo, your AR guide. I will lead your squad checkpoint by checkpoint.",
+      ctaLabel: "Next"
+    },
+    {
+      id: "checkpoint-1-brief",
+      speaker: "Pingo",
+      message:
+        "First checkpoint is live. Point the camera at the checkpoint target image to match and unlock it.",
+      ctaLabel: "Start Scanning"
+    }
+  ]
+};
+
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+function reveal(delayMs: number): CSSProperties {
+  return { animationDelay: `${delayMs}ms` };
 }
 
 type BrandBarProps = {
@@ -270,7 +321,7 @@ function PrimaryButton({
     <button
       aria-label={ariaLabel ?? label}
       className={cn(
-        "inline-flex h-[clamp(3.25rem,8vh,3.75rem)] items-center justify-center gap-2 rounded-2xl px-5 text-[clamp(1rem,4.5vw,1.125rem)] leading-7 tracking-[0.045em] transition-colors",
+        "inline-flex h-[clamp(3.25rem,8vh,3.75rem)] items-center justify-center gap-2 rounded-2xl px-5 text-[clamp(1rem,4.5vw,1.125rem)] leading-7 tracking-[0.045em] transition-all duration-200 motion-safe:active:scale-[0.99]",
         "font-display",
         fullWidth ? "w-full" : "w-auto",
         disabled
@@ -295,20 +346,21 @@ type OnboardingScreenProps = {
 
 function OnboardingScreen({ slide, onNext, onSkip }: OnboardingScreenProps) {
   return (
-    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar onSkip={onSkip} showSkip />
       <ProgressDots step={slide.progressStep} />
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center justify-center">
           <div
-            className="relative mb-7 flex size-[min(28vw,7rem)] items-center justify-center rounded-3xl border"
+            className="anim-fade-up relative mb-7 flex size-[min(28vw,7rem)] items-center justify-center rounded-3xl border"
             style={{
+              ...reveal(60),
               backgroundColor: slide.accent.tileBackground,
               borderColor: slide.accent.tileBorder
             }}
           >
-            <img alt="" className="size-14" src={slide.icon} />
+            <img alt="" className="anim-float size-14" src={slide.icon} />
             <span
               className="absolute -right-2 -top-2 size-4 rounded-full"
               style={{ backgroundColor: slide.accent.orb }}
@@ -320,23 +372,34 @@ function OnboardingScreen({ slide, onNext, onSkip }: OnboardingScreenProps) {
           </div>
 
           <p
-            className="mb-4 text-center text-xs font-normal tracking-[0.3em]"
-            style={{ color: slide.accent.color }}
+            className="anim-fade-up mb-4 text-center text-xs font-normal tracking-[0.3em]"
+            style={{ ...reveal(110), color: slide.accent.color }}
           >
             {slide.stepLabel}
           </p>
-          <h1 className="mb-4 text-center font-display text-[clamp(2rem,9vw,2.3rem)] leading-none tracking-[0.03em] text-white">
+          <h1
+            className="anim-fade-up mb-4 text-center font-display text-[clamp(2rem,9vw,2.3rem)] leading-none tracking-[0.03em] text-white"
+            style={reveal(170)}
+          >
             {slide.title}
           </h1>
-          <p className="mb-5 text-center text-[clamp(0.92rem,3.7vw,1rem)] font-normal leading-5 text-white/60">
+          <p
+            className="anim-fade-up mb-5 text-center text-[clamp(0.92rem,3.7vw,1rem)] font-normal leading-5 text-white/60"
+            style={reveal(220)}
+          >
             {slide.subtitle}
           </p>
-          <p className="max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.62] text-white/40">
+          <p
+            className="anim-fade-up max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.62] text-white/40"
+            style={reveal(270)}
+          >
             {slide.description}
           </p>
         </div>
 
-        <PrimaryButton label={slide.ctaLabel} onClick={onNext} />
+        <div className="anim-fade-up" style={reveal(330)}>
+          <PrimaryButton label={slide.ctaLabel} onClick={onNext} />
+        </div>
       </div>
     </div>
   );
@@ -364,25 +427,37 @@ function ClassCodeScreen({
   canJoin
 }: ClassCodeScreenProps) {
   return (
-    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
       <ProgressDots step={5} />
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="relative mb-9 flex size-20 items-center justify-center rounded-2xl border border-[rgba(255,107,0,0.2)] bg-[rgba(255,107,0,0.1)]">
-            <img alt="" className="size-10" src={ASSETS.classCodeIcon} />
+          <div
+            className="anim-fade-up relative mb-9 flex size-20 items-center justify-center rounded-2xl border border-[rgba(255,107,0,0.2)] bg-[rgba(255,107,0,0.1)]"
+            style={reveal(60)}
+          >
+            <img alt="" className="anim-float size-10" src={ASSETS.classCodeIcon} />
           </div>
 
-          <h1 className="mb-4 text-center font-display text-[clamp(1.9rem,8.6vw,2.2rem)] leading-none tracking-[0.03em] text-white">
+          <h1
+            className="anim-fade-up mb-4 text-center font-display text-[clamp(1.9rem,8.6vw,2.2rem)] leading-none tracking-[0.03em] text-white"
+            style={reveal(140)}
+          >
             ENTER YOUR CLASS CODE
           </h1>
-          <p className="mb-8 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.4] text-white/40">
+          <p
+            className="anim-fade-up mb-8 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.4] text-white/40"
+            style={reveal(200)}
+          >
             Your teacher or facilitator will give you a 6-character code. Ask them if you
             do not have one!
           </p>
 
-          <fieldset className="mb-4 flex w-full justify-center gap-[clamp(0.35rem,1.8vw,0.625rem)]">
+          <fieldset
+            className="anim-fade-up mb-4 flex w-full justify-center gap-[clamp(0.35rem,1.8vw,0.625rem)]"
+            style={reveal(260)}
+          >
             <legend className="sr-only">Class code input</legend>
             {codeChars.map((character, index) => (
               <input
@@ -413,10 +488,12 @@ function ClassCodeScreen({
             ))}
           </fieldset>
 
-          <p className="text-center text-xs text-white/20">Demo code: PULSE1</p>
+          <p className="anim-fade-up text-center text-xs text-white/20" style={reveal(300)}>
+            Demo code: PULSE1
+          </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="anim-fade-up space-y-2" style={reveal(350)}>
           <PrimaryButton disabled={!canJoin} label="Join Game" onClick={onJoin} />
           <button
             className="h-11 w-full text-sm font-bold text-white/20 transition-colors hover:text-white/45"
@@ -447,26 +524,39 @@ function ProfileScreen({
   onContinue
 }: ProfileScreenProps) {
   return (
-    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center">
-          <div className="relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]">
-            <img alt="" className="size-12" src={ASSETS.profileIcon} />
+          <div
+            className="anim-fade-up relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]"
+            style={reveal(60)}
+          >
+            <img alt="" className="anim-float size-12" src={ASSETS.profileIcon} />
             <span className="absolute -right-2 -top-2 size-4 rounded-full bg-[rgba(0,212,255,0.3)]" />
           </div>
 
-          <p className="mb-2 text-center text-xs tracking-[0.3em] text-[#00d4ff]">CODE ACCEPTED</p>
-          <h1 className="mb-3 text-center font-display text-[clamp(2rem,9vw,2.35rem)] leading-none tracking-[0.03em] text-white">
+          <p className="anim-fade-up mb-2 text-center text-xs tracking-[0.3em] text-[#00d4ff]" style={reveal(120)}>
+            CODE ACCEPTED
+          </p>
+          <h1
+            className="anim-fade-up mb-3 text-center font-display text-[clamp(2rem,9vw,2.35rem)] leading-none tracking-[0.03em] text-white"
+            style={reveal(170)}
+          >
             WHAT&apos;S YOUR NAME?
           </h1>
-          <p className="mb-7 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.4] text-white/40">
+          <p
+            className="anim-fade-up mb-7 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.4] text-white/40"
+            style={reveal(220)}
+          >
             This is how your squad will know you. Pick a name and an avatar!
           </p>
 
-          <p className="mb-2 text-center text-xs tracking-[0.05em] text-white/30">CHOOSE YOUR AVATAR</p>
-          <div className="mb-6 grid w-full max-w-[280px] grid-cols-5 gap-2">
+          <p className="anim-fade-up mb-2 text-center text-xs tracking-[0.05em] text-white/30" style={reveal(260)}>
+            CHOOSE YOUR AVATAR
+          </p>
+          <div className="anim-fade-up mb-6 grid w-full max-w-[280px] grid-cols-5 gap-2" style={reveal(300)}>
             {AVATAR_CHOICES.map((avatar, index) => (
               <button
                 className={cn(
@@ -489,16 +579,19 @@ function ProfileScreen({
             Player name
           </label>
           <input
-            className="mb-7 h-[54px] w-full rounded-[14px] border border-[rgba(231,249,255,0.12)] bg-[#1a1a1a] px-4 text-base text-white placeholder:text-white/50 focus:border-[#00d4ff] focus:outline-none"
+            className="anim-fade-up mb-7 h-[54px] w-full rounded-[14px] border border-[rgba(231,249,255,0.12)] bg-[#1a1a1a] px-4 text-base text-white placeholder:text-white/50 focus:border-[#00d4ff] focus:outline-none"
             id="player-name"
             maxLength={24}
             onChange={(event) => onPlayerNameChange(event.target.value)}
             placeholder="Enter your name"
+            style={reveal(350)}
             value={playerName}
           />
         </div>
 
-        <PrimaryButton label="Continue" onClick={onContinue} />
+        <div className="anim-fade-up" style={reveal(390)}>
+          <PrimaryButton label="Continue" onClick={onContinue} />
+        </div>
       </div>
     </div>
   );
@@ -512,36 +605,52 @@ type HandoffScreenProps = {
 
 function HandoffScreen({ gamemasterName, gamemasterAvatar, onPassPhone }: HandoffScreenProps) {
   return (
-    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
       <div className="flex flex-1 flex-col items-center px-5 pb-8 pt-5">
-        <div className="relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]">
-          <span className="text-5xl">{gamemasterAvatar}</span>
-          <span className="absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
+        <div
+          className="anim-fade-up relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]"
+          style={reveal(70)}
+        >
+          <span className="anim-float text-5xl">{gamemasterAvatar}</span>
+          <span className="anim-glow absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
             <img alt="" className="size-5" src={ASSETS.crownIcon} />
           </span>
         </div>
 
-        <p className="mb-2 text-xs tracking-[0.3em] text-[#ffd700]">YOU&apos;RE THE GAMEMASTER</p>
-        <p className="mb-4 font-display text-[clamp(2.1rem,9.5vw,2.6rem)] leading-none text-[#ffd700]">
+        <p className="anim-fade-up mb-2 text-xs tracking-[0.3em] text-[#ffd700]" style={reveal(130)}>
+          YOU&apos;RE THE GAMEMASTER
+        </p>
+        <p
+          className="anim-fade-up mb-4 font-display text-[clamp(2.1rem,9.5vw,2.6rem)] leading-none text-[#ffd700]"
+          style={reveal(180)}
+        >
           {gamemasterName.toUpperCase()}
         </p>
-        <p className="mb-6 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.55] text-white/50">
+        <p
+          className="anim-fade-up mb-6 max-w-[320px] text-center text-[clamp(0.9rem,3.6vw,1rem)] leading-[1.55] text-white/50"
+          style={reveal(230)}
+        >
           Lead your squad to victory! Add your teammates, name your team, and start the adventure.
         </p>
 
         <button
-          className="mb-8 inline-flex h-[38px] items-center gap-2 rounded-full border border-[rgba(255,107,0,0.32)] bg-[rgba(255,107,0,0.1)] px-5 text-[clamp(0.85rem,3.4vw,0.95rem)] leading-5 text-[#ff6b00] transition-colors hover:bg-[rgba(255,107,0,0.18)]"
+          className="anim-fade-up mb-8 inline-flex h-[38px] items-center gap-2 rounded-full border border-[rgba(255,107,0,0.32)] bg-[rgba(255,107,0,0.1)] px-5 text-[clamp(0.85rem,3.4vw,0.95rem)] leading-5 text-[#ff6b00] transition-colors hover:bg-[rgba(255,107,0,0.18)]"
           onClick={onPassPhone}
+          style={reveal(300)}
           type="button"
         >
           <img alt="" className="size-4" src={ASSETS.swordsIcon} />
           <span>Pass the phone to add your squad</span>
         </button>
 
-        <p className="mb-3 text-xs text-white/20">Loading your lobby...</p>
-        <span className="h-8 w-5 animate-spin rounded-full border border-white/10 border-t-white/35" />
+        <p className="anim-fade-up mb-3 text-xs text-white/20" style={reveal(350)}>
+          Loading your lobby...
+        </p>
+        <span className="anim-fade-up block" style={reveal(390)}>
+          <span className="anim-soft-spin block h-8 w-5 rounded-full border border-white/10 border-t-white/35" />
+        </span>
       </div>
     </div>
   );
@@ -558,6 +667,7 @@ type LobbyScreenProps = {
   newTeammateName: string;
   setNewTeammateName: (name: string) => void;
   onAddTeammate: () => void;
+  onStartRace: () => void;
 };
 
 function LobbyScreen({
@@ -570,18 +680,19 @@ function LobbyScreen({
   setNewTeammateAvatar,
   newTeammateName,
   setNewTeammateName,
-  onAddTeammate
+  onAddTeammate,
+  onStartRace
 }: LobbyScreenProps) {
   const [editingSquadName, setEditingSquadName] = useState(false);
   const minTeammateCountMet = members.length > 1;
   const memberLabel = `${members.length} ${members.length === 1 ? "member" : "members"}`;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar showPhoneIndicator />
 
       <div className="flex-1 overflow-y-auto px-5 pb-5">
-        <div className="pt-4">
+        <div className="anim-fade-up pt-4" style={reveal(60)}>
           <div className="mb-1 flex items-center justify-center gap-2">
             {editingSquadName ? (
               <label className="sr-only" htmlFor="squad-name">
@@ -619,7 +730,7 @@ function LobbyScreen({
           <p className="text-center text-xs tracking-[0.05em] text-white/25">TAP THE PENCIL TO NAME YOUR SQUAD</p>
         </div>
 
-        <div className="mt-4 rounded-[14px] border border-[rgba(255,107,0,0.15)] bg-[rgba(255,107,0,0.08)] px-4 py-3">
+        <div className="anim-fade-up mt-4 rounded-[14px] border border-[rgba(255,107,0,0.15)] bg-[rgba(255,107,0,0.08)] px-4 py-3" style={reveal(120)}>
           <p className="text-[clamp(0.85rem,3.35vw,0.95rem)] leading-[1.6] text-white/50">
             <span className="mr-1 inline-flex align-text-bottom">
               <img alt="" className="size-4" src={ASSETS.phoneIcon} />
@@ -629,12 +740,12 @@ function LobbyScreen({
           </p>
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="anim-fade-up mt-4 flex items-center justify-between" style={reveal(170)}>
           <p className="text-xs tracking-[0.05em] text-white/30">SQUAD MEMBERS</p>
           <p className="text-xs text-white/20">{memberLabel}</p>
         </div>
 
-        <div className="mt-2 space-y-2">
+        <div className="anim-fade-up mt-2 space-y-2" style={reveal(210)}>
           {members.map((member) => (
             <div
               className="flex h-[74px] items-center gap-3 rounded-[14px] border border-white/5 bg-[#1a1a1a] px-4"
@@ -663,7 +774,7 @@ function LobbyScreen({
               <span>Add Teammate</span>
             </button>
           ) : (
-            <div className="rounded-[14px] border border-[rgba(255,107,0,0.45)] bg-[#1a1a1a] p-4">
+            <div className="anim-pop-in rounded-[14px] border border-[rgba(255,107,0,0.45)] bg-[#1a1a1a] p-4">
               <p className="mb-3 font-display text-sm tracking-[0.03em] text-[#ff6b00]">PASS THE PHONE - NEW TEAMMATE!</p>
               <div className="mb-3 grid grid-cols-7 gap-1.5 sm:gap-2">
                 {LOBBY_AVATAR_CHOICES.map((avatar) => (
@@ -719,7 +830,7 @@ function LobbyScreen({
           )}
         </div>
 
-        <div className="mt-4 rounded-[14px] border border-[rgba(255,51,153,0.15)] bg-[rgba(255,51,153,0.08)] px-4 py-3">
+        <div className="anim-fade-up mt-4 rounded-[14px] border border-[rgba(255,51,153,0.15)] bg-[rgba(255,51,153,0.08)] px-4 py-3" style={reveal(280)}>
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-[10px] bg-[rgba(255,51,153,0.15)]">
               <img alt="" className="size-4" src={ASSETS.botIcon} />
@@ -731,7 +842,7 @@ function LobbyScreen({
           </div>
         </div>
 
-        <div className="pt-3">
+        <div className="anim-fade-up pt-3" style={reveal(340)}>
           <p className="mb-1 text-center text-xs text-white/25">
             {minTeammateCountMet ? "Your squad is ready to start." : "Add at least 1 more teammate to start"}
           </p>
@@ -743,10 +854,220 @@ function LobbyScreen({
                 : "bg-[rgba(255,107,0,0.15)] text-white/20"
             )}
             disabled={!minTeammateCountMet}
+            onClick={onStartRace}
             type="button"
           >
             {minTeammateCountMet ? "START THE RACE" : "NEED MORE TEAMMATES"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type CameraPermissionScreenProps = {
+  checkpointImagePlaceholder: string;
+  checkpointTargetMindSrc: string;
+  cameraPermissionError: string | null;
+  isRequestingCameraPermission: boolean;
+  onCheckpointImagePlaceholderChange: (value: string) => void;
+  onCheckpointTargetMindSrcChange: (value: string) => void;
+  onRequestCameraPermission: () => void;
+  onBackToLobby: () => void;
+};
+
+function CameraPermissionScreen({
+  checkpointImagePlaceholder,
+  checkpointTargetMindSrc,
+  cameraPermissionError,
+  isRequestingCameraPermission,
+  onCheckpointImagePlaceholderChange,
+  onCheckpointTargetMindSrcChange,
+  onRequestCameraPermission,
+  onBackToLobby
+}: CameraPermissionScreenProps) {
+  return (
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col px-5 pb-6 pt-6">
+        <div className="anim-fade-up rounded-[16px] border border-[#00d4ff]/35 bg-[rgba(0,212,255,0.08)] px-4 py-5">
+          <p className="text-xs tracking-[0.2em] text-[#00d4ff]">CAMERA ACCESS</p>
+          <h1 className="mt-2 font-display text-[clamp(1.85rem,8.2vw,2.2rem)] leading-none text-white">
+            READY FOR AR RACE
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-white/55">
+            Next step asks for camera permission. After that, your squad will move into the live AR view with Pingo.
+          </p>
+        </div>
+
+        <div className="anim-fade-up mt-4 space-y-3 rounded-[16px] border border-white/10 bg-[#111] p-4" style={reveal(80)}>
+          <div>
+            <label className="mb-1 block text-[0.7rem] tracking-[0.08em] text-white/30" htmlFor="checkpoint-image-src">
+              CHECKPOINT IMAGE PLACEHOLDER URL
+            </label>
+            <input
+              className="h-11 w-full rounded-[12px] border border-white/10 bg-[#050505] px-3 text-sm text-white placeholder:text-white/35 focus:border-[#00d4ff] focus:outline-none"
+              id="checkpoint-image-src"
+              onChange={(event) => onCheckpointImagePlaceholderChange(event.target.value)}
+              placeholder="https://example.com/checkpoint.png"
+              value={checkpointImagePlaceholder}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[0.7rem] tracking-[0.08em] text-white/30" htmlFor="checkpoint-target-src">
+              MINDAR TARGET URL (.MIND)
+            </label>
+            <input
+              className="h-11 w-full rounded-[12px] border border-white/10 bg-[#050505] px-3 text-sm text-white placeholder:text-white/35 focus:border-[#00d4ff] focus:outline-none"
+              id="checkpoint-target-src"
+              onChange={(event) => onCheckpointTargetMindSrcChange(event.target.value)}
+              placeholder="https://example.com/checkpoint.mind"
+              value={checkpointTargetMindSrc}
+            />
+          </div>
+          <p className="text-xs leading-5 text-white/35">
+            Placeholder is configurable now. MindAR matching uses the `.mind` target file.
+          </p>
+        </div>
+
+        {cameraPermissionError ? (
+          <p className="anim-fade-up mt-3 rounded-[12px] border border-[#ff6b00]/35 bg-[rgba(255,107,0,0.1)] px-3 py-2 text-xs leading-5 text-[#ffc69f]">
+            {cameraPermissionError}
+          </p>
+        ) : null}
+
+        <div className="anim-fade-up mt-auto space-y-2" style={reveal(160)}>
+          <PrimaryButton
+            disabled={isRequestingCameraPermission}
+            label={isRequestingCameraPermission ? "Requesting Camera..." : "Enable Camera"}
+            onClick={onRequestCameraPermission}
+          />
+          <button
+            className="h-11 w-full text-sm font-bold text-white/25 transition-colors hover:text-white/55"
+            onClick={onBackToLobby}
+            type="button"
+          >
+            Back to lobby
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type RaceCameraScreenProps = {
+  config: RaceFlowConfig;
+  checkpointImagePlaceholder: string;
+  checkpointTargetMindSrc: string;
+  dialogueStepIndex: number;
+  onAdvanceDialogue: () => void;
+  onBackToLobby: () => void;
+  onCheckpointMatched: () => void;
+};
+
+function RaceCameraScreen({
+  config,
+  checkpointImagePlaceholder,
+  checkpointTargetMindSrc,
+  dialogueStepIndex,
+  onAdvanceDialogue,
+  onBackToLobby,
+  onCheckpointMatched
+}: RaceCameraScreenProps) {
+  const dialogueComplete = dialogueStepIndex >= config.dialogue.length;
+  const activeDialogue = config.dialogue[Math.min(dialogueStepIndex, config.dialogue.length - 1)];
+
+  return (
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col px-4 pb-5 pt-3">
+        <div className="anim-fade-up mb-3 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2" style={reveal(40)}>
+          <p className="text-[0.68rem] tracking-[0.18em] text-[#00d4ff]">{config.checkpoint.name.toUpperCase()}</p>
+          <p className="text-xs text-white/40">
+            {dialogueComplete ? "Scanning for checkpoint match..." : "Pingo briefing before scan"}
+          </p>
+        </div>
+
+        <div className="anim-fade-up relative h-[56dvh] min-h-[360px] max-h-[640px]" style={reveal(80)}>
+          <MindARImageScene
+            onTargetFound={() => {
+              if (dialogueComplete) {
+                onCheckpointMatched();
+              }
+            }}
+            scanningEnabled
+            targetMindFileSrc={checkpointTargetMindSrc}
+          />
+
+          {!dialogueComplete && activeDialogue ? (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3">
+              <div className="pointer-events-auto rounded-[16px] border border-[#ff3399]/40 bg-[rgba(10,10,10,0.92)] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
+                <p className="text-[0.72rem] tracking-[0.2em] text-[#ff3399]">{activeDialogue.speaker.toUpperCase()}</p>
+                <p className="mt-2 text-sm leading-6 text-white/80">{activeDialogue.message}</p>
+                <div className="mt-4">
+                  <PrimaryButton fullWidth={false} label={activeDialogue.ctaLabel} onClick={onAdvanceDialogue} />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="anim-fade-up mt-3 rounded-[14px] border border-white/10 bg-[#111] p-3" style={reveal(120)}>
+          <p className="mb-2 text-[0.7rem] tracking-[0.1em] text-white/30">CHECKPOINT IMAGE PLACEHOLDER</p>
+          <div className="flex items-center gap-3">
+            <img
+              alt={`${config.checkpoint.name} placeholder`}
+              className="size-16 rounded-[10px] border border-white/10 bg-black object-cover"
+              src={checkpointImagePlaceholder}
+            />
+            <p className="text-xs leading-5 text-white/45">
+              Target preview currently uses placeholder image input. Replace this with your real checkpoint image later.
+            </p>
+          </div>
+        </div>
+
+        <button
+          className="anim-fade-up mt-3 h-11 w-full rounded-[12px] text-sm font-bold text-white/30 transition-colors hover:text-white/55"
+          onClick={onBackToLobby}
+          style={reveal(160)}
+          type="button"
+        >
+          Exit race setup
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type CheckpointClearedScreenProps = {
+  mascotName: string;
+  checkpointName: string;
+  onBackToLobby: () => void;
+};
+
+function CheckpointClearedScreen({ mascotName, checkpointName, onBackToLobby }: CheckpointClearedScreenProps) {
+  return (
+    <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col items-center justify-center px-5 pb-6 pt-2 text-center">
+        <div className="anim-fade-up mb-5 flex size-20 items-center justify-center rounded-full border border-[#00d4ff]/45 bg-[rgba(0,212,255,0.12)] text-3xl">
+          🎯
+        </div>
+        <p className="anim-fade-up text-xs tracking-[0.2em] text-[#00d4ff]" style={reveal(80)}>
+          CHECKPOINT MATCHED
+        </p>
+        <h1 className="anim-fade-up mt-3 font-display text-[clamp(2rem,8.7vw,2.3rem)] leading-none text-white" style={reveal(120)}>
+          {checkpointName.toUpperCase()} CLEAR
+        </h1>
+        <p className="anim-fade-up mt-4 max-w-[290px] text-sm leading-6 text-white/55" style={reveal(160)}>
+          {mascotName} confirms the match. You can now continue to the next checkpoint flow.
+        </p>
+
+        <div className="anim-fade-up mt-8 w-full" style={reveal(220)}>
+          <PrimaryButton label="Back to Lobby" onClick={onBackToLobby} />
         </div>
       </div>
     </div>
@@ -765,6 +1086,15 @@ export function ScapePulseFlow() {
   const [expandedAddTeammate, setExpandedAddTeammate] = useState(false);
   const [newTeammateAvatar, setNewTeammateAvatar] = useState("🐙");
   const [newTeammateName, setNewTeammateName] = useState("Tania");
+  const [isRequestingCameraPermission, setIsRequestingCameraPermission] = useState(false);
+  const [cameraPermissionError, setCameraPermissionError] = useState<string | null>(null);
+  const [checkpointImagePlaceholder, setCheckpointImagePlaceholder] = useState(
+    RACE_FLOW_CONFIG.checkpoint.imagePlaceholderSrc
+  );
+  const [checkpointTargetMindSrc, setCheckpointTargetMindSrc] = useState(
+    RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc
+  );
+  const [dialogueStepIndex, setDialogueStepIndex] = useState(0);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const activeSlide = useMemo(
@@ -904,6 +1234,50 @@ export function ScapePulseFlow() {
     setNewTeammateName("");
   };
 
+  const openCameraPermissionStep = () => {
+    setDialogueStepIndex(0);
+    setCameraPermissionError(null);
+    setScreen("camera-permission");
+  };
+
+  const requestCameraPermission = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraPermissionError("This browser does not support camera access.");
+      return;
+    }
+
+    setIsRequestingCameraPermission(true);
+    setCameraPermissionError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      setScreen("ar-race");
+    } catch {
+      setCameraPermissionError("Camera permission is required to open the AR checkpoint scanner.");
+    } finally {
+      setIsRequestingCameraPermission(false);
+    }
+  };
+
+  const advanceDialogueStep = () => {
+    setDialogueStepIndex((currentStep) => Math.min(currentStep + 1, RACE_FLOW_CONFIG.dialogue.length));
+  };
+
+  const onCheckpointMatched = () => {
+    setScreen("checkpoint-cleared");
+  };
+
+  const backToLobby = () => {
+    setDialogueStepIndex(0);
+    setCameraPermissionError(null);
+    setIsRequestingCameraPermission(false);
+    setScreen("lobby");
+  };
+
   useEffect(() => {
     if (screen !== "handoff") {
       return;
@@ -911,7 +1285,7 @@ export function ScapePulseFlow() {
 
     const timeoutId = window.setTimeout(() => {
       setScreen("lobby");
-    }, 5000);
+    }, 3000);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -963,11 +1337,45 @@ export function ScapePulseFlow() {
             newTeammateAvatar={newTeammateAvatar}
             newTeammateName={newTeammateName}
             onAddTeammate={addTeammate}
+            onStartRace={openCameraPermissionStep}
             setExpandedAddTeammate={setExpandedAddTeammate}
             setNewTeammateAvatar={setNewTeammateAvatar}
             setNewTeammateName={setNewTeammateName}
             setSquadName={setSquadName}
             squadName={squadName}
+          />
+        ) : null}
+
+        {screen === "camera-permission" ? (
+          <CameraPermissionScreen
+            cameraPermissionError={cameraPermissionError}
+            checkpointImagePlaceholder={checkpointImagePlaceholder}
+            checkpointTargetMindSrc={checkpointTargetMindSrc}
+            isRequestingCameraPermission={isRequestingCameraPermission}
+            onBackToLobby={backToLobby}
+            onCheckpointImagePlaceholderChange={setCheckpointImagePlaceholder}
+            onCheckpointTargetMindSrcChange={setCheckpointTargetMindSrc}
+            onRequestCameraPermission={requestCameraPermission}
+          />
+        ) : null}
+
+        {screen === "ar-race" ? (
+          <RaceCameraScreen
+            checkpointImagePlaceholder={checkpointImagePlaceholder}
+            checkpointTargetMindSrc={checkpointTargetMindSrc}
+            config={RACE_FLOW_CONFIG}
+            dialogueStepIndex={dialogueStepIndex}
+            onAdvanceDialogue={advanceDialogueStep}
+            onBackToLobby={backToLobby}
+            onCheckpointMatched={onCheckpointMatched}
+          />
+        ) : null}
+
+        {screen === "checkpoint-cleared" ? (
+          <CheckpointClearedScreen
+            checkpointName={RACE_FLOW_CONFIG.checkpoint.name}
+            mascotName={RACE_FLOW_CONFIG.mascotName}
+            onBackToLobby={backToLobby}
           />
         ) : null}
       </main>
