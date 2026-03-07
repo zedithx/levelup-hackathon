@@ -4,6 +4,27 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { MindARImageScene } from "@/components/scape-pulse/mindar-image-scene";
 
+
+// Runtime Three.js loaded dynamically to avoid SSR hydration mismatches
+/* eslint-disable @typescript-eslint/no-explicit-any */
+let THREE = null as any as Awaited<typeof import("three")>;
+let OrbitControls = null as any as new (...a: any[]) => any;
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+let _threeLoad: Promise<void> | null = null;
+function ensureThree(): Promise<void> {
+  if (!_threeLoad) {
+    _threeLoad = Promise.all([
+      import("three"),
+      import("three/addons/controls/OrbitControls.js"),
+    ]).then(([m, { OrbitControls: OC }]) => {
+      THREE = m;
+      OrbitControls = OC;
+    });
+  }
+  return _threeLoad;
+}
+
 type FlowScreen =
   | "intro-1"
   | "intro-2"
@@ -13,9 +34,14 @@ type FlowScreen =
   | "profile"
   | "handoff"
   | "lobby"
+<<<<<<< HEAD
   | "camera-permission"
   | "ar-race"
   | "checkpoint-cleared";
+=======
+  | "character-selection"
+  | "mascot-selection";
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 
 type OnboardingSlide = {
   id: Extract<FlowScreen, "intro-1" | "intro-2" | "intro-3" | "intro-4">;
@@ -37,6 +63,7 @@ type OnboardingSlide = {
 type TeamMember = {
   id: string;
   avatar: string;
+  avatarUrl?: string;
   name: string;
   role: "Gamemaster" | "Teammate";
   isLeader?: boolean;
@@ -162,22 +189,9 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
 ];
 
 const AVATAR_CHOICES = [
-  "🦊",
-  "🐯",
-  "🦁",
-  "🐺",
-  "🦅",
-  "🐉",
-  "🦈",
-  "🐙",
-  "🦖",
-  "🎯",
-  "⚡",
-  "🔥",
-  "💎",
-  "🌟",
-  "🚀",
-  "🎮"
+  "🐷",
+  "🐶",
+  "🐔",
 ];
 
 const LOBBY_AVATAR_CHOICES = [
@@ -199,6 +213,7 @@ const LOBBY_AVATAR_CHOICES = [
   "🎮"
 ];
 
+<<<<<<< HEAD
 const RACE_FLOW_CONFIG: RaceFlowConfig = {
   mascotName: "Pingo",
   checkpoint: {
@@ -225,12 +240,256 @@ const RACE_FLOW_CONFIG: RaceFlowConfig = {
   ]
 };
 
+=======
+type AnimalType = "pig" | "dog" | "chicken";
+
+interface AvatarConfig {
+  animal: AnimalType;
+  bodyColor: string;
+  accentColor: string;
+  eyeColor: string;
+  markingColor: string;
+}
+
+const ANIMAL_DEFAULTS: Record<AnimalType, Omit<AvatarConfig, "animal">> = {
+  pig:     { bodyColor: "#f5b8c4", accentColor: "#e07890", eyeColor: "#1a0a0a", markingColor: "#e890b8" },
+  dog:     { bodyColor: "#d4a060", accentColor: "#e8c890", eyeColor: "#2a1608", markingColor: "#8b4a18" },
+  chicken: { bodyColor: "#f5d855", accentColor: "#f07700", eyeColor: "#1a1a08", markingColor: "#cc1800" },
+};
+
+const ANIMAL_PALETTES: Record<AnimalType, { body: string[]; accent: string[]; eye: string[]; marking: string[]; accentLabel: string; markingLabel: string }> = {
+  pig: {
+    body:    ["#f5b8c4","#fadadd","#f5c5a3","#c8a0e0","#a8d8c8","#f5e0a0"],
+    accent:  ["#e07890","#f0a8b8","#c05870","#ff6080","#d88080"],
+    eye:     ["#1a0a0a","#3b2314","#1a3a1a","#5b8dd9","#8b4a8b","#cc2200"],
+    marking: ["#e890b8","#d06090","#ff80c0","#c0a0e0","#e06060"],
+    accentLabel: "Snout Colour", markingLabel: "Ear Colour",
+  },
+  dog: {
+    body:    ["#d4a060","#c8884a","#e8d0a0","#ffffff","#4a3828","#b0a898"],
+    accent:  ["#e8c890","#f0ddb0","#d4b880","#e8e0c8","#c8a878"],
+    eye:     ["#1a0a0a","#3b2314","#1a3a1a","#5b8dd9","#8b4a8b","#cc2200"],
+    marking: ["#8b4a18","#6a3010","#a06828","#4a2810","#c87830"],
+    accentLabel: "Belly & Muzzle", markingLabel: "Saddle Colour",
+  },
+  chicken: {
+    body:    ["#f5d855","#f0c040","#e8a820","#ffffff","#f0e090","#c8e8a0"],
+    accent:  ["#f07700","#f05020","#e06010","#d08020","#f09040"],
+    eye:     ["#1a0a0a","#3b2314","#1a3a1a","#5b8dd9","#8b4a8b","#cc2200"],
+    marking: ["#cc1800","#dd3020","#bb0010","#ff4030","#aa1010"],
+    accentLabel: "Beak & Leg Colour", markingLabel: "Comb & Wattle",
+  },
+};
+
+const EMOJI_TO_ANIMAL: Record<string, AnimalType> = {
+  "🐷": "pig",
+  "🐶": "dog",
+  "🐔": "chicken",
+};
+
+function avatarMat(color: string, roughness = 0.75, metalness = 0) {
+  return new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness, metalness });
+}
+
+function makeMeshAdder(group: any) {
+  return (
+    geo: any, material: any,
+    x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0,
+  ) => {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x, y, z);
+    m.scale.set(sx, sy, sz);
+    m.rotation.set(rx, ry, rz);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+}
+
+function buildPig(c: AvatarConfig): any {
+  const g = new THREE.Group();
+  const add = makeMeshAdder(g);
+  const body = avatarMat(c.bodyColor), snoutM = avatarMat(c.accentColor, 0.8);
+  const eyeM = avatarMat(c.eyeColor, 0.3), earM = avatarMat(c.markingColor);
+  const hoof = avatarMat("#7a5050", 0.9), white = avatarMat("#ffffff", 0.3), dark = avatarMat("#0a0a0a", 0.1);
+  add(new THREE.SphereGeometry(1, 32, 32), body, 0, 0.9, 0, 1.18, 0.86, 1.38);
+  add(new THREE.CapsuleGeometry(0.34, 0.22, 5, 10), body, 0, 1.28, 0.58);
+  add(new THREE.SphereGeometry(0.68, 28, 28), body, 0, 1.56, 0.96);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.38, 12, 12), body, s * 0.46, 1.98, 0.76, 0.58, 1.32, 0.26);
+    add(new THREE.SphereGeometry(0.26, 10, 10), earM, s * 0.46, 1.98, 0.80, 0.36, 0.92, 0.14);
+  }
+  add(new THREE.CylinderGeometry(0.36, 0.38, 0.18, 16), snoutM, 0, 1.36, 1.62, 1, 1, 1, Math.PI / 2);
+  add(new THREE.SphereGeometry(0.085, 8, 8), avatarMat("#aa4858", 0.5), -0.14, 1.36, 1.77);
+  add(new THREE.SphereGeometry(0.085, 8, 8), avatarMat("#aa4858", 0.5),  0.14, 1.36, 1.77);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.13, 12, 12), white, s * 0.30, 1.62, 1.52, 1, 1, 0.52);
+    add(new THREE.SphereGeometry(0.09, 10, 10), eyeM,  s * 0.30, 1.62, 1.59, 1, 1, 0.44);
+    add(new THREE.SphereGeometry(0.055, 8, 8),  dark,  s * 0.30, 1.62, 1.63, 1, 1, 0.34);
+    add(new THREE.SphereGeometry(0.028, 6, 6),  white, s * 0.34, 1.66, 1.64);
+  }
+  for (const [x, z] of [[-0.54, 0.64], [0.54, 0.64], [-0.54, -0.60], [0.54, -0.60]]) {
+    add(new THREE.CapsuleGeometry(0.17, 0.42, 5, 10), body, x as number, 0.38, z as number);
+    add(new THREE.SphereGeometry(0.20, 8, 8), hoof, x as number, 0.02, z as number, 1, 0.42, 0.88);
+  }
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.066, 8, 16, Math.PI * 1.5), body);
+  tail.position.set(0, 0.96, -1.30); tail.rotation.set(Math.PI / 4, 0, 0); tail.castShadow = true; g.add(tail);
+  return g;
+}
+
+function buildDog(c: AvatarConfig): any {
+  const g = new THREE.Group();
+  const add = makeMeshAdder(g);
+  const fur = avatarMat(c.bodyColor), belly = avatarMat(c.accentColor, 0.8);
+  const saddle = avatarMat(c.markingColor), eyeM = avatarMat(c.eyeColor, 0.3);
+  const noseM = avatarMat("#1a0a08", 0.4), white = avatarMat("#ffffff", 0.3);
+  const dark = avatarMat("#0a0a0a", 0.1), tongue = avatarMat("#e84060", 0.7);
+  add(new THREE.SphereGeometry(1, 32, 32), fur, 0, 0.86, 0, 1.15, 0.82, 1.45);
+  add(new THREE.SphereGeometry(0.70, 16, 16), belly, 0, 0.64, 0.72, 0.76, 0.54, 0.58);
+  add(new THREE.SphereGeometry(0.62, 14, 14), saddle, 0, 1.22, -0.28, 0.9, 0.52, 0.82);
+  add(new THREE.CapsuleGeometry(0.36, 0.24, 5, 10), fur, 0, 1.36, 0.54);
+  add(new THREE.SphereGeometry(0.70, 28, 28), fur, 0, 1.68, 0.88);
+  add(new THREE.SphereGeometry(0.38, 16, 16), belly, 0, 1.52, 1.50, 1, 0.72, 0.88);
+  add(new THREE.SphereGeometry(0.12, 10, 10), noseM, 0, 1.58, 1.86, 1, 0.75, 0.72);
+  add(new THREE.SphereGeometry(0.11, 8, 8), tongue, 0, 1.38, 1.72, 0.72, 0.52, 0.52);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.36, 12, 12), fur,   s * 0.72, 1.60, 0.74, 0.40, 1.32, 0.28);
+    add(new THREE.SphereGeometry(0.24, 10, 10), belly, s * 0.72, 1.60, 0.78, 0.26, 0.88, 0.16);
+  }
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.13, 12, 12), white, s * 0.34, 1.76, 1.46, 1, 1, 0.52);
+    add(new THREE.SphereGeometry(0.09, 10, 10), eyeM,  s * 0.34, 1.76, 1.52, 1, 1, 0.44);
+    add(new THREE.SphereGeometry(0.056, 8, 8),  dark,  s * 0.34, 1.76, 1.56, 1, 1, 0.34);
+    add(new THREE.SphereGeometry(0.028, 6, 6),  white, s * 0.37, 1.80, 1.57);
+  }
+  for (const [x, z] of [[-0.52, 0.64], [0.52, 0.64], [-0.52, -0.64], [0.52, -0.64]]) {
+    add(new THREE.CapsuleGeometry(0.18, 0.44, 5, 10), fur, x as number, 0.38, z as number);
+    add(new THREE.SphereGeometry(0.21, 8, 8), fur, x as number, 0.02, z as number, 1.15, 0.40, 1.10);
+  }
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.075, 8, 18, Math.PI * 1.2), fur);
+  tail.position.set(0, 1.02, -1.38); tail.rotation.set(-Math.PI / 6, 0, 0); tail.castShadow = true; g.add(tail);
+  return g;
+}
+
+function buildChicken(c: AvatarConfig): any {
+  const g = new THREE.Group();
+  const add = makeMeshAdder(g);
+  const feather = avatarMat(c.bodyColor), beak = avatarMat(c.accentColor, 0.8);
+  const comb = avatarMat(c.markingColor), eyeM = avatarMat(c.eyeColor, 0.3);
+  const white = avatarMat("#ffffff", 0.3), dark = avatarMat("#0a0a0a", 0.1);
+  add(new THREE.SphereGeometry(0.9, 32, 32), feather, 0, 1.05, 0, 1.05, 1.22, 1.28);
+  add(new THREE.SphereGeometry(0.70, 18, 18), feather, 0, 0.98, 0.78, 0.82, 0.76, 0.72);
+  add(new THREE.CapsuleGeometry(0.28, 0.18, 5, 10), feather, 0, 1.68, 0.44);
+  add(new THREE.SphereGeometry(0.52, 24, 24), feather, 0, 1.94, 0.52);
+  add(new THREE.ConeGeometry(0.12, 0.36, 8), beak, 0, 1.86, 1.02, 1, 1, 1, Math.PI / 2);
+  add(new THREE.ConeGeometry(0.09, 0.26, 8), beak, 0, 1.74, 1.00, 1, 1, 1, Math.PI / 2 + 0.30);
+  for (const [cy, cz, sy] of [[2.40, 0.66, 1.30], [2.46, 0.52, 1.55], [2.40, 0.38, 1.20]])
+    add(new THREE.SphereGeometry(0.11, 8, 8), comb, 0, cy as number, cz as number, 0.80, sy as number, 0.80);
+  add(new THREE.SphereGeometry(0.11, 8, 8), comb, -0.10, 1.68, 0.98, 0.80, 1.28, 0.72);
+  add(new THREE.SphereGeometry(0.11, 8, 8), comb,  0.10, 1.68, 0.98, 0.80, 1.28, 0.72);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.10, 12, 12), white, s * 0.32, 2.00, 0.92, 1, 1, 0.50);
+    add(new THREE.SphereGeometry(0.07, 10, 10), eyeM,  s * 0.32, 2.00, 0.96, 1, 1, 0.44);
+    add(new THREE.SphereGeometry(0.044, 8, 8),  dark,  s * 0.32, 2.00, 0.98, 1, 1, 0.35);
+    add(new THREE.SphereGeometry(0.022, 6, 6),  white, s * 0.354, 2.034, 0.99);
+  }
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.68, 16, 16), feather, s * 0.96, 1.06, -0.10, 0.36, 0.78, 1.14);
+    add(new THREE.SphereGeometry(0.22, 10, 10), feather, s * 0.98, 0.76, -0.62, 0.60, 0.60, 0.60);
+  }
+  for (const s of [-1, 1]) {
+    add(new THREE.CapsuleGeometry(0.076, 0.54, 5, 8), beak, s * 0.24, 0.44, 0.54);
+    add(new THREE.SphereGeometry(0.09, 7, 7), beak, s * 0.24,        0.08, 0.76);
+    add(new THREE.SphereGeometry(0.08, 7, 7), beak, s * 0.24 - 0.11, 0.08, 0.58);
+    add(new THREE.SphereGeometry(0.08, 7, 7), beak, s * 0.24 + 0.11, 0.08, 0.58);
+  }
+  for (const [fx, frz] of [[0, 0], [-0.20, 0.36], [0.20, -0.36], [-0.38, 0.68], [0.38, -0.68]])
+    add(new THREE.ConeGeometry(0.12, 0.62, 8), feather, fx as number, 1.20, -1.06, 1, 1, 1, -Math.PI / 3, 0, frz as number);
+  return g;
+}
+
+function buildAnimalAvatar(c: AvatarConfig): any {
+  let group: any;
+  switch (c.animal) {
+    case "pig":     group = buildPig(c);     break;
+    case "dog":     group = buildDog(c);     break;
+    case "chicken": group = buildChicken(c); break;
+  }
+  group.traverse((child: any) => { if (child.isMesh) child.castShadow = true; });
+  return group;
+}
+
+async function renderAvatarPreview(cfg: AvatarConfig): Promise<string> {
+  await ensureThree();
+  const w = 300, h = 300;
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = w; offCanvas.height = h;
+  const r = new THREE.WebGLRenderer({ canvas: offCanvas, antialias: true });
+  r.setPixelRatio(1); r.setSize(w, h, false);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+  r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+  const s = new THREE.Scene();
+  s.background = new THREE.Color("#0d0d1a");
+  s.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
+  const kl = new THREE.DirectionalLight(0xffeedd, 1.3);
+  kl.position.set(4, 7, 5); kl.castShadow = true; s.add(kl);
+  const fl = new THREE.DirectionalLight(0xaaccff, 0.4);
+  fl.position.set(-5, 2, 3); s.add(fl);
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(4.5, 48),
+    new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
+  );
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; s.add(ground);
+  const cam = new THREE.PerspectiveCamera(36, w / h, 0.1, 100);
+  cam.position.set(1.8, 3.0, 7.5); cam.lookAt(0, 0.8, 0);
+  s.add(buildAnimalAvatar(cfg));
+  r.render(s, cam);
+  const url = offCanvas.toDataURL("image/png");
+  s.traverse(child => { const m = child as any; if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); } });
+  r.dispose();
+  return url;
+}
+
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+<<<<<<< HEAD
 function reveal(delayMs: number): CSSProperties {
   return { animationDelay: `${delayMs}ms` };
+=======
+type ColorSelectorProps = {
+  title: string;
+  colors: string[];
+  selectedColor: string;
+  onSelectColor: (hex: string) => void;
+};
+
+function ColorSelector({ title, colors, selectedColor, onSelectColor }: ColorSelectorProps) {
+  return (
+    <div className="mb-4">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/30">{title}</h3>
+      <div className="flex flex-wrap gap-2">
+        {colors.map((hex) => (
+          <button
+            key={hex}
+            onClick={() => onSelectColor(hex)}
+            type="button"
+            className={cn(
+              "size-9 rounded-full transition-all duration-200 border-2",
+              selectedColor === hex
+                ? "border-[#ff6b00] scale-110 shadow-[0_0_0_2px_#0a0a0a,0_0_0_4px_#ff6b00]"
+                : "border-transparent hover:scale-105"
+            )}
+            style={{ backgroundColor: hex }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 }
 
 type BrandBarProps = {
@@ -529,11 +788,16 @@ function ProfileScreen({
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center">
+<<<<<<< HEAD
           <div
             className="anim-fade-up relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]"
             style={reveal(60)}
           >
             <img alt="" className="anim-float size-12" src={ASSETS.profileIcon} />
+=======
+          <div className="relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]">
+            <span className="text-5xl leading-none">{selectedAvatar}</span>
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             <span className="absolute -right-2 -top-2 size-4 rounded-full bg-[rgba(0,212,255,0.3)]" />
           </div>
 
@@ -553,18 +817,23 @@ function ProfileScreen({
             This is how your squad will know you. Pick a name and an avatar!
           </p>
 
+<<<<<<< HEAD
           <p className="anim-fade-up mb-2 text-center text-xs tracking-[0.05em] text-white/30" style={reveal(260)}>
             CHOOSE YOUR AVATAR
           </p>
           <div className="anim-fade-up mb-6 grid w-full max-w-[280px] grid-cols-5 gap-2" style={reveal(300)}>
             {AVATAR_CHOICES.map((avatar, index) => (
+=======
+          <p className="mb-2 text-center text-xs tracking-[0.05em] text-white/30">CHOOSE YOUR AVATAR</p>
+          <div className="mb-6 grid grid-cols-7 gap-1.5 w-full">
+            {LOBBY_AVATAR_CHOICES.map((avatar) => (
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
               <button
                 className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-[14px] border text-lg transition-colors",
+                  "flex h-9 w-9 items-center justify-center rounded-[10px] border text-sm transition-colors",
                   selectedAvatar === avatar
                     ? "border-[#00d4ff] bg-[rgba(0,212,255,0.2)]"
-                    : "border-transparent bg-white/5 hover:bg-white/10",
-                  index === AVATAR_CHOICES.length - 1 ? "col-start-3" : ""
+                    : "border-transparent bg-white/5 hover:bg-white/10"
                 )}
                 key={avatar}
                 onClick={() => onAvatarChange(avatar)}
@@ -597,24 +866,247 @@ function ProfileScreen({
   );
 }
 
+function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvatar: string; onContinue: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animalType: AnimalType = EMOJI_TO_ANIMAL[selectedAvatar] ?? "pig";
+  const palette = ANIMAL_PALETTES[animalType];
+  const defaults = ANIMAL_DEFAULTS[animalType];
+
+  const [bodyColor, setBodyColor] = useState(defaults.bodyColor);
+  const [accentColor, setAccentColor] = useState(defaults.accentColor);
+  const [eyeColor, setEyeColor] = useState(defaults.eyeColor);
+  const [markingColor, setMarkingColor] = useState(defaults.markingColor);
+
+  const rebuildRef = useRef<((cfg: AvatarConfig) => void) | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+
+    ensureThree().then(() => {
+      const canvas = canvasRef.current;
+      if (disposed || !canvas) return;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#0d0d1a");
+
+      const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+      camera.position.set(0, 2.2, 8);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.target.set(0, 0.8, 0);
+      controls.minDistance = 3;
+      controls.maxDistance = 15;
+      controls.update();
+
+      scene.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
+      const key = new THREE.DirectionalLight(0xffeedd, 1.3);
+      key.position.set(4, 7, 5); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xaaccff, 0.4);
+      fill.position.set(-5, 2, 3); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.28);
+      rim.position.set(0, 5, -6); scene.add(rim);
+
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(4.5, 72),
+        new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
+      );
+      ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; ground.receiveShadow = true;
+      scene.add(ground);
+
+      let avatarGroup = new THREE.Group();
+      scene.add(avatarGroup);
+
+      rebuildRef.current = (cfg: AvatarConfig) => {
+        scene.remove(avatarGroup);
+        avatarGroup.traverse(child => {
+          const mesh = child as any;
+          if (mesh.isMesh) { mesh.geometry.dispose(); (mesh.material as any).dispose(); }
+        });
+        avatarGroup = buildAnimalAvatar(cfg);
+        scene.add(avatarGroup);
+      };
+
+      // Trigger initial build now that Three.js is ready
+      rebuildRef.current({ animal: animalType, bodyColor, accentColor, eyeColor, markingColor });
+
+      function resize() {
+        const container = canvas!.parentElement;
+        if (!container) return;
+        renderer.setSize(container.clientWidth, container.clientHeight, false);
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+      }
+
+      const ro = new ResizeObserver(resize);
+      ro.observe(canvas.parentElement!);
+      resize();
+
+      let animId: number;
+      function animate() {
+        animId = requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      cleanup = () => {
+        cancelAnimationFrame(animId);
+        ro.disconnect();
+        rebuildRef.current = null;
+        controls.dispose();
+        scene.traverse(child => {
+          const m = child as any;
+          if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); }
+        });
+        renderer.dispose();
+      };
+    });
+
+    return () => {
+      disposed = true;
+      cleanup?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    rebuildRef.current?.({ animal: animalType, bodyColor, accentColor, eyeColor, markingColor });
+  }, [animalType, bodyColor, accentColor, eyeColor, markingColor]);
+
+  const animalName = animalType.charAt(0).toUpperCase() + animalType.slice(1);
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
+        <h1 className="mb-1 text-center font-display text-[clamp(1.6rem,7vw,2rem)] leading-none tracking-[0.03em] text-white">
+          CHOOSE YOUR MASCOT
+        </h1>
+        <p className="mb-1 text-center text-sm text-white/50">Choose a mascot to represent yourself</p>
+        <p className="mb-3 text-center text-xs text-white/25">Drag to rotate · Scroll to zoom</p>
+
+        <div className="mb-4 w-full overflow-hidden rounded-2xl" style={{ height: "220px" }}>
+          <canvas ref={canvasRef} className="block w-full h-full" />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2">
+          <ColorSelector title="BODY COLOUR" colors={palette.body} selectedColor={bodyColor} onSelectColor={setBodyColor} />
+          <ColorSelector title={palette.accentLabel.toUpperCase()} colors={palette.accent} selectedColor={accentColor} onSelectColor={setAccentColor} />
+          <ColorSelector title="EYE COLOUR" colors={palette.eye} selectedColor={eyeColor} onSelectColor={setEyeColor} />
+          <ColorSelector title={palette.markingLabel.toUpperCase()} colors={palette.marking} selectedColor={markingColor} onSelectColor={setMarkingColor} />
+        </div>
+
+        <PrimaryButton label="LET'S GO!" onClick={() => {}} />
+      </div>
+    </div>
+  );
+}
+
+function CharacterSelectionScreen({ onContinue }: { onContinue: (animal: AnimalType) => void }) {
+  const [selected, setSelected] = useState<AnimalType>("pig");
+  const [previews, setPreviews] = useState<Record<AnimalType, string>>({ pig: "", dog: "", chicken: "" });
+
+  useEffect(() => {
+    const animals: AnimalType[] = ["pig", "dog", "chicken"];
+    animals.forEach((animal) => {
+      renderAvatarPreview({ animal, ...ANIMAL_DEFAULTS[animal] }).then((url) => {
+        setPreviews((prev) => ({ ...prev, [animal]: url }));
+      });
+    });
+  }, []);
+
+  const animalEmoji: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col px-5 pb-6 pt-4">
+        <h1 className="mb-1 text-center font-display text-[clamp(1.6rem,7vw,2rem)] leading-none tracking-[0.03em] text-white">
+          CHOOSE YOUR CHARACTER
+        </h1>
+        <p className="mb-6 text-center text-sm text-white/50">Pick a mascot for your adventure</p>
+
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {(["pig", "dog", "chicken"] as AnimalType[]).map((animal) => (
+            <button
+              key={animal}
+              onClick={() => setSelected(animal)}
+              type="button"
+              className={cn(
+                "flex flex-col items-center rounded-2xl border-2 overflow-hidden transition-all duration-200",
+                selected === animal
+                  ? "border-[#ff6b00] bg-[rgba(255,107,0,0.1)] scale-[1.03]"
+                  : "border-white/10 bg-white/5 hover:border-white/20"
+              )}
+            >
+              <div className="w-full overflow-hidden bg-[#0d0d1a]" style={{ aspectRatio: "1" }}>
+                {previews[animal] ? (
+                  <img alt={animal} className="w-full h-full object-cover" src={previews[animal]} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl">
+                    {animalEmoji[animal]}
+                  </div>
+                )}
+              </div>
+              <p
+                className={cn(
+                  "py-2 text-xs font-bold tracking-widest uppercase transition-colors",
+                  selected === animal ? "text-[#ff6b00]" : "text-white/40"
+                )}
+              >
+                {animal}
+              </p>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1" />
+        <PrimaryButton label="Customise" onClick={() => onContinue(selected)} />
+      </div>
+    </div>
+  );
+}
+
 type HandoffScreenProps = {
   gamemasterName: string;
   gamemasterAvatar: string;
+  gamemasterAvatarUrl?: string;
   onPassPhone: () => void;
 };
 
-function HandoffScreen({ gamemasterName, gamemasterAvatar, onPassPhone }: HandoffScreenProps) {
+function HandoffScreen({ gamemasterName, gamemasterAvatar, gamemasterAvatarUrl, onPassPhone }: HandoffScreenProps) {
   return (
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
       <div className="flex flex-1 flex-col items-center px-5 pb-8 pt-5">
+<<<<<<< HEAD
         <div
           className="anim-fade-up relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]"
           style={reveal(70)}
         >
           <span className="anim-float text-5xl">{gamemasterAvatar}</span>
           <span className="anim-glow absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
+=======
+        <div className="relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)] overflow-hidden">
+          {gamemasterAvatarUrl
+            ? <img alt="avatar" className="size-full object-cover" src={gamemasterAvatarUrl} />
+            : <span className="text-5xl">{gamemasterAvatar}</span>}
+          <span className="absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             <img alt="" className="size-5" src={ASSETS.crownIcon} />
           </span>
         </div>
@@ -751,8 +1243,10 @@ function LobbyScreen({
               className="flex h-[74px] items-center gap-3 rounded-[14px] border border-white/5 bg-[#1a1a1a] px-4"
               key={member.id}
             >
-              <span className="flex size-11 items-center justify-center rounded-[14px] bg-white/5 text-2xl">
-                {member.avatar}
+              <span className="flex size-11 items-center justify-center rounded-[14px] bg-white/5 text-2xl overflow-hidden">
+                {member.avatarUrl
+                  ? <img alt="avatar" className="size-full object-cover" src={member.avatarUrl} />
+                  : member.avatar}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -857,7 +1351,7 @@ function LobbyScreen({
             onClick={onStartRace}
             type="button"
           >
-            {minTeammateCountMet ? "START THE RACE" : "NEED MORE TEAMMATES"}
+            {minTeammateCountMet ? "CHOOSE YOUR GUIDE!" : "NEED MORE TEAMMATES"}
           </button>
         </div>
       </div>
@@ -1078,6 +1572,7 @@ export function ScapePulseFlow() {
   const [screen, setScreen] = useState<FlowScreen>("intro-1");
   const [classCodeChars, setClassCodeChars] = useState<string[]>(Array.from({ length: 6 }, () => ""));
   const [selectedAvatar, setSelectedAvatar] = useState("🦊");
+  const [avatarImageUrl, setAvatarImageUrl] = useState("");
   const [playerName, setPlayerName] = useState("Jun");
   const [squadName, setSquadName] = useState("Squad PULSE1");
   const [members, setMembers] = useState<TeamMember[]>([
@@ -1325,6 +1820,7 @@ export function ScapePulseFlow() {
         {screen === "handoff" ? (
           <HandoffScreen
             gamemasterAvatar={selectedAvatar}
+            gamemasterAvatarUrl={avatarImageUrl}
             gamemasterName={playerName}
             onPassPhone={() => setScreen("lobby")}
           />
@@ -1337,7 +1833,11 @@ export function ScapePulseFlow() {
             newTeammateAvatar={newTeammateAvatar}
             newTeammateName={newTeammateName}
             onAddTeammate={addTeammate}
+<<<<<<< HEAD
             onStartRace={openCameraPermissionStep}
+=======
+            onStartRace={() => setScreen("character-selection")}
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             setExpandedAddTeammate={setExpandedAddTeammate}
             setNewTeammateAvatar={setNewTeammateAvatar}
             setNewTeammateName={setNewTeammateName}
@@ -1346,6 +1846,7 @@ export function ScapePulseFlow() {
           />
         ) : null}
 
+<<<<<<< HEAD
         {screen === "camera-permission" ? (
           <CameraPermissionScreen
             cameraPermissionError={cameraPermissionError}
@@ -1376,6 +1877,22 @@ export function ScapePulseFlow() {
             checkpointName={RACE_FLOW_CONFIG.checkpoint.name}
             mascotName={RACE_FLOW_CONFIG.mascotName}
             onBackToLobby={backToLobby}
+=======
+        {screen === "character-selection" ? (
+          <CharacterSelectionScreen
+            onContinue={(animal) => {
+              const emojiMap: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
+              setSelectedAvatar(emojiMap[animal]);
+              setScreen("mascot-selection");
+            }}
+          />
+        ) : null}
+
+        {screen === "mascot-selection" ? (
+          <CharacterCustomiseScreen
+            selectedAvatar={selectedAvatar}
+            onContinue={() => {}}
+>>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
           />
         ) : null}
       </main>
