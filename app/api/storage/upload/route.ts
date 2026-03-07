@@ -41,17 +41,26 @@ function sanitizeToken(value: string) {
     .slice(0, 40);
 }
 
-function normalizeStorageRoot(rawUrl: string) {
+function normalizeStorageApiBase(rawUrl: string) {
   const trimmed = rawUrl.trim().replace(/\/+$/, "");
-  const suffixes = ["/storage/v1/s3", "/storage/v1/object/public", "/storage/v1/object", "/storage/v1"];
 
-  for (const suffix of suffixes) {
-    if (trimmed.endsWith(suffix)) {
-      return trimmed.slice(0, -suffix.length);
-    }
+  if (trimmed.endsWith("/storage/v1/s3")) {
+    return trimmed.slice(0, -3);
   }
 
-  return trimmed;
+  if (trimmed.endsWith("/storage/v1/object/public")) {
+    return `${trimmed.slice(0, -"/storage/v1/object/public".length)}/storage/v1`;
+  }
+
+  if (trimmed.endsWith("/storage/v1/object")) {
+    return `${trimmed.slice(0, -"/storage/v1/object".length)}/storage/v1`;
+  }
+
+  if (trimmed.endsWith("/storage/v1")) {
+    return trimmed;
+  }
+
+  return `${trimmed}/storage/v1`;
 }
 
 function encodeObjectPath(path: string) {
@@ -76,20 +85,20 @@ function extensionForMimeType(mimeType: string) {
   return "bin";
 }
 
-function extensionForFile(file: File) {
-  const maybeNameExtension = file.name.split(".").pop()?.toLowerCase() ?? "";
+function extensionForFile(filename: string, mimeType: string) {
+  const maybeNameExtension = filename.split(".").pop()?.toLowerCase() ?? "";
 
   if (/^[a-z0-9]{1,10}$/.test(maybeNameExtension)) {
     return maybeNameExtension;
   }
 
-  return extensionForMimeType(file.type);
+  return extensionForMimeType(mimeType);
 }
 
-function buildObjectPath(assetType: AssetType, file: File, playerName: string | null) {
+function buildObjectPath(assetType: AssetType, filename: string, mimeType: string, playerName: string | null) {
   const timestamp = new Date().toISOString().replace(/[.:]/g, "-");
   const id = crypto.randomUUID();
-  const extension = extensionForFile(file);
+  const extension = extensionForFile(filename, mimeType);
 
   if (assetType === "selfie") {
     return `selfie/${timestamp}-${id}.${extension}`;
@@ -111,6 +120,18 @@ function missingStorageEnvMessage() {
   return "Storage is not configured. Add SUPABASE_STORAGE_URL, SUPABASE_STORAGE_SERVICE_KEY, and SUPABASE_STORAGE_BUCKET.";
 }
 
+function buildSignedUploadUrl(storageApiBase: string, urlPath: string) {
+  if (urlPath.startsWith("http://") || urlPath.startsWith("https://")) {
+    return urlPath;
+  }
+
+  if (urlPath.startsWith("/")) {
+    return `${storageApiBase}${urlPath}`;
+  }
+
+  return `${storageApiBase}/${urlPath}`;
+}
+
 export async function POST(request: Request) {
   const storageUrl = process.env.SUPABASE_STORAGE_URL;
   const storageServiceKey = process.env.SUPABASE_STORAGE_SERVICE_KEY;
@@ -120,55 +141,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: missingStorageEnvMessage() }, { status: 500 });
   }
 
-  const formData = await request.formData();
-  const assetTypeRaw = formData.get("assetType");
-  const fileEntry = formData.get("file");
-  const playerNameEntry = formData.get("playerName");
+  let payload: unknown;
 
-  const assetType = typeof assetTypeRaw === "string" ? assetTypeRaw.trim() : "";
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Invalid JSON body. Send assetType, filename, mimeType, and size."
+      },
+      { status: 400 }
+    );
+  }
 
-  if (!isAssetType(assetType)) {
+  if (!payload || typeof payload !== "object") {
+    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
+  }
+
+  const record = payload as Record<string, unknown>;
+  const assetTypeRaw = typeof record.assetType === "string" ? record.assetType.trim() : "";
+  const filename = typeof record.filename === "string" ? record.filename.trim() : "";
+  const mimeType = typeof record.mimeType === "string" ? record.mimeType.trim() : "";
+  const size = typeof record.size === "number" ? record.size : Number.NaN;
+  const playerName = typeof record.playerName === "string" ? record.playerName.trim() : null;
+
+  if (!isAssetType(assetTypeRaw)) {
     return NextResponse.json({ error: "assetType must be one of: selfie, dance, drawing, singing." }, { status: 400 });
   }
 
-  if (!(fileEntry instanceof File)) {
-    return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
+  if (!filename) {
+    return NextResponse.json({ error: "filename is required." }, { status: 400 });
   }
 
-  if (fileEntry.size <= 0) {
-    return NextResponse.json({ error: "Uploaded file is empty." }, { status: 400 });
+  if (!mimeType) {
+    return NextResponse.json({ error: "mimeType is required." }, { status: 400 });
   }
 
-  if (fileEntry.size > MAX_UPLOAD_BYTES[assetType]) {
-    return NextResponse.json({ error: `File is too large for ${assetType}.` }, { status: 413 });
+  if (!Number.isFinite(size) || size <= 0) {
+    return NextResponse.json({ error: "size must be a positive number." }, { status: 400 });
   }
 
-  if (!isMimeAllowed(assetType, fileEntry.type)) {
-    return NextResponse.json({ error: `Unsupported file type for ${assetType}.` }, { status: 415 });
+  if (size > MAX_UPLOAD_BYTES[assetTypeRaw]) {
+    return NextResponse.json({ error: `File is too large for ${assetTypeRaw}.` }, { status: 413 });
   }
 
-  const playerName = typeof playerNameEntry === "string" ? playerNameEntry.trim() : null;
-  const objectPath = buildObjectPath(assetType, fileEntry, playerName);
+  if (!isMimeAllowed(assetTypeRaw, mimeType)) {
+    return NextResponse.json({ error: `Unsupported file type for ${assetTypeRaw}.` }, { status: 415 });
+  }
+
+  const objectPath = buildObjectPath(assetTypeRaw, filename, mimeType, playerName);
   const encodedObjectPath = encodeObjectPath(objectPath);
   const encodedBucket = encodeURIComponent(storageBucket);
-  const storageRoot = normalizeStorageRoot(storageUrl);
-  const uploadUrl = `${storageRoot}/storage/v1/object/${encodedBucket}/${encodedObjectPath}`;
+  const storageApiBase = normalizeStorageApiBase(storageUrl);
+  const createSignedUploadUrl = `${storageApiBase}/object/upload/sign/${encodedBucket}/${encodedObjectPath}`;
   const publicBase = process.env.SUPABASE_STORAGE_PUBLIC_URL_BASE?.trim().replace(/\/+$/, "")
-    || `${storageRoot}/storage/v1/object/public`;
+    || `${storageApiBase}/object/public`;
   const publicUrl = `${publicBase}/${encodedBucket}/${encodedObjectPath}`;
 
   try {
-    const fileBuffer = Buffer.from(await fileEntry.arrayBuffer());
-    const upstreamResponse = await fetch(uploadUrl, {
+    const upstreamResponse = await fetch(createSignedUploadUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${storageServiceKey}`,
         apikey: storageServiceKey,
-        "cache-control": "31536000",
-        "content-type": fileEntry.type || "application/octet-stream",
-        "x-upsert": "true"
+        "content-type": "application/json"
       },
-      body: fileBuffer
+      body: JSON.stringify({})
     });
 
     if (!upstreamResponse.ok) {
@@ -176,19 +214,34 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Upload to storage failed.",
+          error: "Failed to create signed upload URL.",
           details: upstreamError.slice(0, 500)
         },
         { status: 502 }
       );
     }
 
+    const upstreamPayload = (await upstreamResponse.json().catch(() => null)) as Record<string, unknown> | null;
+    const signedPath = typeof upstreamPayload?.url === "string" ? upstreamPayload.url : "";
+
+    if (!signedPath) {
+      return NextResponse.json(
+        {
+          error: "Storage did not return a signed upload URL."
+        },
+        { status: 502 }
+      );
+    }
+
+    const signedUrl = buildSignedUploadUrl(storageApiBase, signedPath);
+
     return NextResponse.json({
       objectPath,
-      publicUrl
+      publicUrl,
+      signedUrl
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown upload error";
-    return NextResponse.json({ error: "Upload failed.", details: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown signed upload error";
+    return NextResponse.json({ error: "Failed to prepare upload.", details: message }, { status: 500 });
   }
 }

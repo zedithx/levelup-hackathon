@@ -65,7 +65,7 @@ Starter template with:
 
 ## Bucket Upload Setup (Game Memories)
 
-This project includes `/api/storage/upload`, which uploads selfie, dance, drawing, and singing assets into Supabase Storage and then uses those URLs in the ending memory carousel.
+This project includes `/api/storage/upload`, which creates a signed upload URL, then the browser uploads selfie/dance/drawing/singing files directly to Supabase Storage. This avoids large file bodies passing through the Next.js server function (better for Vercel limits).
 
 Add these to `.env.local`:
 

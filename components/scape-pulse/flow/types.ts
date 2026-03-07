@@ -61,9 +61,14 @@ export type EndingCarouselMedia = {
     src: string;
     authorName: string;
   }>;
+  drawingStory: {
+    actualWord: string;
+    finalWord: string;
+  };
   finalSong: {
     audioSrc: string;
     songTitle: string;
     voiceContributors: string[];
+    backgroundTrackSrc: string;
   };
 };

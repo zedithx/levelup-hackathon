@@ -262,7 +262,8 @@ export function SingingGameFlow() {
       saveFinalSongMemoryAsset({
         audioSrc: uploadResult.publicUrl,
         songTitle: SINGING_GAME_SONG.title,
-        voiceContributors
+        voiceContributors,
+        backgroundTrackSrc: SINGING_GAME_TRACK_SRC
       });
 
       setIsAudioUploaded(true);

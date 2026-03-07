@@ -222,7 +222,10 @@ export function DrawingRelayFlow() {
       }
 
       if (uploadedDrawings.length) {
-        saveDrawingMemoryAssets(uploadedDrawings);
+        saveDrawingMemoryAssets(uploadedDrawings, {
+          actualWord: SECRET_WORD_PLACEHOLDER,
+          finalWord: revealedGuess.trim() || "No guess"
+        });
       }
 
       setDrawingsUploadDone(true);
@@ -233,7 +236,7 @@ export function DrawingRelayFlow() {
     } finally {
       setIsUploadingDrawings(false);
     }
-  }, [activePlayers, drawings]);
+  }, [activePlayers, drawings, revealedGuess]);
 
   useEffect(() => {
     if (
