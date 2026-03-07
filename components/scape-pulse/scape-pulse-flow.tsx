@@ -3,7 +3,12 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { MindARImageScene } from "@/components/scape-pulse/mindar-image-scene";
+import { ArGuideScreen } from "@/components/scape-pulse/ar-guide-screen";
 
+/** Returns a CSS animationDelay style for staggered fade-in animations. */
+function reveal(delayMs: number): CSSProperties {
+  return { animationDelay: `${delayMs}ms` };
+}
 
 // Runtime Three.js loaded dynamically to avoid SSR hydration mismatches
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -34,14 +39,12 @@ type FlowScreen =
   | "profile"
   | "handoff"
   | "lobby"
-<<<<<<< HEAD
+  | "character-selection"
+  | "mascot-selection"
+  | "ar-guide"
   | "camera-permission"
   | "ar-race"
   | "checkpoint-cleared";
-=======
-  | "character-selection"
-  | "mascot-selection";
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 
 type OnboardingSlide = {
   id: Extract<FlowScreen, "intro-1" | "intro-2" | "intro-3" | "intro-4">;
@@ -84,6 +87,23 @@ type RaceFlowConfig = {
     targetMindFileSrc: string;
   };
   dialogue: RaceDialogueStep[];
+};
+
+const RACE_FLOW_CONFIG: RaceFlowConfig = {
+  mascotName: "Pingo",
+  checkpoint: {
+    name: "Checkpoint 1",
+    imagePlaceholderSrc: "https://placehold.co/300x200?text=Checkpoint",
+    targetMindFileSrc: "",
+  },
+  dialogue: [
+    {
+      id: "d1",
+      speaker: "Pingo",
+      message: "Hey! Let's find the first checkpoint. Point your camera at the marker!",
+      ctaLabel: "Got it",
+    },
+  ],
 };
 
 const ASSETS = {
@@ -213,34 +233,6 @@ const LOBBY_AVATAR_CHOICES = [
   "🎮"
 ];
 
-<<<<<<< HEAD
-const RACE_FLOW_CONFIG: RaceFlowConfig = {
-  mascotName: "Pingo",
-  checkpoint: {
-    name: "Checkpoint 1",
-    imagePlaceholderSrc:
-      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.png",
-    targetMindFileSrc:
-      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.mind"
-  },
-  dialogue: [
-    {
-      id: "pingo-intro",
-      speaker: "Pingo",
-      message: "Race start! I am Pingo, your AR guide. I will lead your squad checkpoint by checkpoint.",
-      ctaLabel: "Next"
-    },
-    {
-      id: "checkpoint-1-brief",
-      speaker: "Pingo",
-      message:
-        "First checkpoint is live. Point the camera at the checkpoint target image to match and unlock it.",
-      ctaLabel: "Start Scanning"
-    }
-  ]
-};
-
-=======
 type AnimalType = "pig" | "dog" | "chicken";
 
 interface AvatarConfig {
@@ -451,15 +443,10 @@ async function renderAvatarPreview(cfg: AvatarConfig): Promise<string> {
   return url;
 }
 
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-<<<<<<< HEAD
-function reveal(delayMs: number): CSSProperties {
-  return { animationDelay: `${delayMs}ms` };
-=======
 type ColorSelectorProps = {
   title: string;
   colors: string[];
@@ -489,7 +476,6 @@ function ColorSelector({ title, colors, selectedColor, onSelectColor }: ColorSel
       </div>
     </div>
   );
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
 }
 
 type BrandBarProps = {
@@ -788,16 +774,8 @@ function ProfileScreen({
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center">
-<<<<<<< HEAD
-          <div
-            className="anim-fade-up relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]"
-            style={reveal(60)}
-          >
-            <img alt="" className="anim-float size-12" src={ASSETS.profileIcon} />
-=======
           <div className="relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]">
             <span className="text-5xl leading-none">{selectedAvatar}</span>
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             <span className="absolute -right-2 -top-2 size-4 rounded-full bg-[rgba(0,212,255,0.3)]" />
           </div>
 
@@ -817,17 +795,9 @@ function ProfileScreen({
             This is how your squad will know you. Pick a name and an avatar!
           </p>
 
-<<<<<<< HEAD
-          <p className="anim-fade-up mb-2 text-center text-xs tracking-[0.05em] text-white/30" style={reveal(260)}>
-            CHOOSE YOUR AVATAR
-          </p>
-          <div className="anim-fade-up mb-6 grid w-full max-w-[280px] grid-cols-5 gap-2" style={reveal(300)}>
-            {AVATAR_CHOICES.map((avatar, index) => (
-=======
           <p className="mb-2 text-center text-xs tracking-[0.05em] text-white/30">CHOOSE YOUR AVATAR</p>
           <div className="mb-6 grid grid-cols-7 gap-1.5 w-full">
             {LOBBY_AVATAR_CHOICES.map((avatar) => (
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
               <button
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-[10px] border text-sm transition-colors",
@@ -866,7 +836,7 @@ function ProfileScreen({
   );
 }
 
-function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvatar: string; onContinue: () => void }) {
+function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvatar: string; onContinue: (cfg: AvatarConfig) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animalType: AnimalType = EMOJI_TO_ANIMAL[selectedAvatar] ?? "pig";
   const palette = ANIMAL_PALETTES[animalType];
@@ -1008,7 +978,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
           <ColorSelector title={palette.markingLabel.toUpperCase()} colors={palette.marking} selectedColor={markingColor} onSelectColor={setMarkingColor} />
         </div>
 
-        <PrimaryButton label="LET'S GO!" onClick={() => {}} />
+        <PrimaryButton label="LET'S GO!" onClick={() => onContinue({ animal: animalType, bodyColor, accentColor, eyeColor, markingColor })} />
       </div>
     </div>
   );
@@ -1093,20 +1063,11 @@ function HandoffScreen({ gamemasterName, gamemasterAvatar, gamemasterAvatarUrl, 
       <BrandBar />
 
       <div className="flex flex-1 flex-col items-center px-5 pb-8 pt-5">
-<<<<<<< HEAD
-        <div
-          className="anim-fade-up relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]"
-          style={reveal(70)}
-        >
-          <span className="anim-float text-5xl">{gamemasterAvatar}</span>
-          <span className="anim-glow absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
-=======
         <div className="relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)] overflow-hidden">
           {gamemasterAvatarUrl
             ? <img alt="avatar" className="size-full object-cover" src={gamemasterAvatarUrl} />
             : <span className="text-5xl">{gamemasterAvatar}</span>}
           <span className="absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             <img alt="" className="size-5" src={ASSETS.crownIcon} />
           </span>
         </div>
@@ -1590,6 +1551,7 @@ export function ScapePulseFlow() {
     RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc
   );
   const [dialogueStepIndex, setDialogueStepIndex] = useState(0);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const activeSlide = useMemo(
@@ -1833,11 +1795,7 @@ export function ScapePulseFlow() {
             newTeammateAvatar={newTeammateAvatar}
             newTeammateName={newTeammateName}
             onAddTeammate={addTeammate}
-<<<<<<< HEAD
-            onStartRace={openCameraPermissionStep}
-=======
             onStartRace={() => setScreen("character-selection")}
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
             setExpandedAddTeammate={setExpandedAddTeammate}
             setNewTeammateAvatar={setNewTeammateAvatar}
             setNewTeammateName={setNewTeammateName}
@@ -1846,38 +1804,6 @@ export function ScapePulseFlow() {
           />
         ) : null}
 
-<<<<<<< HEAD
-        {screen === "camera-permission" ? (
-          <CameraPermissionScreen
-            cameraPermissionError={cameraPermissionError}
-            checkpointImagePlaceholder={checkpointImagePlaceholder}
-            checkpointTargetMindSrc={checkpointTargetMindSrc}
-            isRequestingCameraPermission={isRequestingCameraPermission}
-            onBackToLobby={backToLobby}
-            onCheckpointImagePlaceholderChange={setCheckpointImagePlaceholder}
-            onCheckpointTargetMindSrcChange={setCheckpointTargetMindSrc}
-            onRequestCameraPermission={requestCameraPermission}
-          />
-        ) : null}
-
-        {screen === "ar-race" ? (
-          <RaceCameraScreen
-            checkpointImagePlaceholder={checkpointImagePlaceholder}
-            checkpointTargetMindSrc={checkpointTargetMindSrc}
-            config={RACE_FLOW_CONFIG}
-            dialogueStepIndex={dialogueStepIndex}
-            onAdvanceDialogue={advanceDialogueStep}
-            onBackToLobby={backToLobby}
-            onCheckpointMatched={onCheckpointMatched}
-          />
-        ) : null}
-
-        {screen === "checkpoint-cleared" ? (
-          <CheckpointClearedScreen
-            checkpointName={RACE_FLOW_CONFIG.checkpoint.name}
-            mascotName={RACE_FLOW_CONFIG.mascotName}
-            onBackToLobby={backToLobby}
-=======
         {screen === "character-selection" ? (
           <CharacterSelectionScreen
             onContinue={(animal) => {
@@ -1891,8 +1817,17 @@ export function ScapePulseFlow() {
         {screen === "mascot-selection" ? (
           <CharacterCustomiseScreen
             selectedAvatar={selectedAvatar}
-            onContinue={() => {}}
->>>>>>> 2149df9a05b91a3b143680663e95faf714d6b147
+            onContinue={(cfg) => {
+              setAvatarConfig(cfg);
+              setScreen("ar-guide");
+            }}
+          />
+        ) : null}
+
+        {screen === "ar-guide" && avatarConfig ? (
+          <ArGuideScreen
+            config={avatarConfig}
+            onExit={() => setScreen("mascot-selection")}
           />
         ) : null}
       </main>
