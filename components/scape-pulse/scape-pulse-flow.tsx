@@ -2,8 +2,27 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+
+// Runtime Three.js loaded dynamically to avoid SSR hydration mismatches
+/* eslint-disable @typescript-eslint/no-explicit-any */
+let THREE = null as any as Awaited<typeof import("three")>;
+let OrbitControls = null as any as new (...a: any[]) => any;
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+let _threeLoad: Promise<void> | null = null;
+function ensureThree(): Promise<void> {
+  if (!_threeLoad) {
+    _threeLoad = Promise.all([
+      import("three"),
+      import("three/addons/controls/OrbitControls.js"),
+    ]).then(([m, { OrbitControls: OC }]) => {
+      THREE = m;
+      OrbitControls = OC;
+    });
+  }
+  return _threeLoad;
+}
 
 type FlowScreen =
   | "intro-1"
@@ -12,9 +31,9 @@ type FlowScreen =
   | "intro-4"
   | "class-code"
   | "profile"
-  | "character-customise"
   | "handoff"
-  | "lobby";
+  | "lobby"
+  | "mascot-selection";
 
 type OnboardingSlide = {
   id: Extract<FlowScreen, "intro-1" | "intro-2" | "intro-3" | "intro-4">;
@@ -36,6 +55,7 @@ type OnboardingSlide = {
 type TeamMember = {
   id: string;
   avatar: string;
+  avatarUrl?: string;
   name: string;
   role: "Gamemaster" | "Teammate";
   isLeader?: boolean;
@@ -218,9 +238,9 @@ function avatarMat(color: string, roughness = 0.75, metalness = 0) {
   return new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness, metalness });
 }
 
-function makeMeshAdder(group: THREE.Group) {
+function makeMeshAdder(group: any) {
   return (
-    geo: THREE.BufferGeometry, material: THREE.Material,
+    geo: any, material: any,
     x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0,
   ) => {
     const m = new THREE.Mesh(geo, material);
@@ -233,7 +253,7 @@ function makeMeshAdder(group: THREE.Group) {
   };
 }
 
-function buildPig(c: AvatarConfig): THREE.Group {
+function buildPig(c: AvatarConfig): any {
   const g = new THREE.Group();
   const add = makeMeshAdder(g);
   const body = avatarMat(c.bodyColor), snoutM = avatarMat(c.accentColor, 0.8);
@@ -264,7 +284,7 @@ function buildPig(c: AvatarConfig): THREE.Group {
   return g;
 }
 
-function buildDog(c: AvatarConfig): THREE.Group {
+function buildDog(c: AvatarConfig): any {
   const g = new THREE.Group();
   const add = makeMeshAdder(g);
   const fur = avatarMat(c.bodyColor), belly = avatarMat(c.accentColor, 0.8);
@@ -298,7 +318,7 @@ function buildDog(c: AvatarConfig): THREE.Group {
   return g;
 }
 
-function buildChicken(c: AvatarConfig): THREE.Group {
+function buildChicken(c: AvatarConfig): any {
   const g = new THREE.Group();
   const add = makeMeshAdder(g);
   const feather = avatarMat(c.bodyColor), beak = avatarMat(c.accentColor, 0.8);
@@ -335,15 +355,47 @@ function buildChicken(c: AvatarConfig): THREE.Group {
   return g;
 }
 
-function buildAnimalAvatar(c: AvatarConfig): THREE.Group {
-  let group: THREE.Group;
+function buildAnimalAvatar(c: AvatarConfig): any {
+  let group: any;
   switch (c.animal) {
     case "pig":     group = buildPig(c);     break;
     case "dog":     group = buildDog(c);     break;
     case "chicken": group = buildChicken(c); break;
   }
-  group.traverse(child => { if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).castShadow = true; });
+  group.traverse((child: any) => { if (child.isMesh) child.castShadow = true; });
   return group;
+}
+
+async function renderAvatarPreview(cfg: AvatarConfig): Promise<string> {
+  await ensureThree();
+  const w = 300, h = 300;
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = w; offCanvas.height = h;
+  const r = new THREE.WebGLRenderer({ canvas: offCanvas, antialias: true });
+  r.setPixelRatio(1); r.setSize(w, h, false);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+  r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+  const s = new THREE.Scene();
+  s.background = new THREE.Color("#0d0d1a");
+  s.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
+  const kl = new THREE.DirectionalLight(0xffeedd, 1.3);
+  kl.position.set(4, 7, 5); kl.castShadow = true; s.add(kl);
+  const fl = new THREE.DirectionalLight(0xaaccff, 0.4);
+  fl.position.set(-5, 2, 3); s.add(fl);
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(4.5, 48),
+    new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
+  );
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; s.add(ground);
+  const cam = new THREE.PerspectiveCamera(36, w / h, 0.1, 100);
+  cam.position.set(1.8, 3.0, 7.5); cam.lookAt(0, 0.8, 0);
+  s.add(buildAnimalAvatar(cfg));
+  r.render(s, cam);
+  const url = offCanvas.toDataURL("image/png");
+  s.traverse(child => { const m = child as any; if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); } });
+  r.dispose();
+  return url;
 }
 
 function cn(...parts: Array<string | false | null | undefined>) {
@@ -652,7 +704,7 @@ function ProfileScreen({
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <div className="flex flex-1 flex-col items-center">
           <div className="relative mb-7 mt-[clamp(1.5rem,8vh,4.25rem)] flex size-24 items-center justify-center rounded-3xl border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.1)]">
-            <img alt="" className="size-12" src={ASSETS.profileIcon} />
+            <span className="text-5xl leading-none">{selectedAvatar}</span>
             <span className="absolute -right-2 -top-2 size-4 rounded-full bg-[rgba(0,212,255,0.3)]" />
           </div>
 
@@ -665,15 +717,14 @@ function ProfileScreen({
           </p>
 
           <p className="mb-2 text-center text-xs tracking-[0.05em] text-white/30">CHOOSE YOUR AVATAR</p>
-          <div className="mb-6 grid w-full max-w-[280px] grid-cols-3 gap-2">
-            {AVATAR_CHOICES.map((avatar, index) => (
+          <div className="mb-6 grid grid-cols-7 gap-1.5 w-full">
+            {LOBBY_AVATAR_CHOICES.map((avatar) => (
               <button
                 className={cn(
-                  "flex h-11 w-full items-center justify-center rounded-[14px] border text-2xl leading-none transition-colors",
+                  "flex h-9 w-9 items-center justify-center rounded-[10px] border text-sm transition-colors",
                   selectedAvatar === avatar
                     ? "border-[#00d4ff] bg-[rgba(0,212,255,0.2)]"
-                    : "border-transparent bg-white/5 hover:bg-white/10",
-                  index === AVATAR_CHOICES.length - 1 ? "col-start-3" : ""
+                    : "border-transparent bg-white/5 hover:bg-white/10"
                 )}
                 key={avatar}
                 onClick={() => onAvatarChange(avatar)}
@@ -717,90 +768,103 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
   const rebuildRef = useRef<((cfg: AvatarConfig) => void) | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    ensureThree().then(() => {
+      const canvas = canvasRef.current;
+      if (disposed || !canvas) return;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#0d0d1a");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
 
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-    camera.position.set(0, 2.2, 8);
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#0d0d1a");
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.target.set(0, 0.8, 0);
-    controls.minDistance = 3;
-    controls.maxDistance = 15;
-    controls.update();
+      const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+      camera.position.set(0, 2.2, 8);
 
-    scene.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
-    const key = new THREE.DirectionalLight(0xffeedd, 1.3);
-    key.position.set(4, 7, 5); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xaaccff, 0.4);
-    fill.position.set(-5, 2, 3); scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xffffff, 0.28);
-    rim.position.set(0, 5, -6); scene.add(rim);
-
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(4.5, 72),
-      new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
-    );
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; ground.receiveShadow = true;
-    scene.add(ground);
-
-    let avatarGroup = new THREE.Group();
-    scene.add(avatarGroup);
-
-    rebuildRef.current = (cfg: AvatarConfig) => {
-      scene.remove(avatarGroup);
-      avatarGroup.traverse(child => {
-        const mesh = child as THREE.Mesh;
-        if (mesh.isMesh) { mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); }
-      });
-      avatarGroup = buildAnimalAvatar(cfg);
-      scene.add(avatarGroup);
-    };
-
-    function resize() {
-      const container = canvas!.parentElement;
-      if (!container) return;
-      renderer.setSize(container.clientWidth, container.clientHeight, false);
-      camera.aspect = container.clientWidth / container.clientHeight;
-      camera.updateProjectionMatrix();
-    }
-
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas.parentElement!);
-    resize();
-
-    let animId: number;
-    function animate() {
-      animId = requestAnimationFrame(animate);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.target.set(0, 0.8, 0);
+      controls.minDistance = 3;
+      controls.maxDistance = 15;
       controls.update();
-      renderer.render(scene, camera);
-    }
-    animate();
+
+      scene.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
+      const key = new THREE.DirectionalLight(0xffeedd, 1.3);
+      key.position.set(4, 7, 5); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xaaccff, 0.4);
+      fill.position.set(-5, 2, 3); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.28);
+      rim.position.set(0, 5, -6); scene.add(rim);
+
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(4.5, 72),
+        new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
+      );
+      ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; ground.receiveShadow = true;
+      scene.add(ground);
+
+      let avatarGroup = new THREE.Group();
+      scene.add(avatarGroup);
+
+      rebuildRef.current = (cfg: AvatarConfig) => {
+        scene.remove(avatarGroup);
+        avatarGroup.traverse(child => {
+          const mesh = child as any;
+          if (mesh.isMesh) { mesh.geometry.dispose(); (mesh.material as any).dispose(); }
+        });
+        avatarGroup = buildAnimalAvatar(cfg);
+        scene.add(avatarGroup);
+      };
+
+      // Trigger initial build now that Three.js is ready
+      rebuildRef.current({ animal: animalType, bodyColor, accentColor, eyeColor, markingColor });
+
+      function resize() {
+        const container = canvas!.parentElement;
+        if (!container) return;
+        renderer.setSize(container.clientWidth, container.clientHeight, false);
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+      }
+
+      const ro = new ResizeObserver(resize);
+      ro.observe(canvas.parentElement!);
+      resize();
+
+      let animId: number;
+      function animate() {
+        animId = requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      cleanup = () => {
+        cancelAnimationFrame(animId);
+        ro.disconnect();
+        rebuildRef.current = null;
+        controls.dispose();
+        scene.traverse(child => {
+          const m = child as any;
+          if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); }
+        });
+        renderer.dispose();
+      };
+    });
 
     return () => {
-      cancelAnimationFrame(animId);
-      ro.disconnect();
-      rebuildRef.current = null;
-      controls.dispose();
-      scene.traverse(child => {
-        const m = child as THREE.Mesh;
-        if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
-      });
-      renderer.dispose();
+      disposed = true;
+      cleanup?.();
     };
   }, []);
 
@@ -812,13 +876,14 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
 
   return (
     <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
-      <BrandBar showSkip onSkip={onContinue} />
+      <BrandBar />
 
       <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
         <h1 className="mb-1 text-center font-display text-[clamp(1.6rem,7vw,2rem)] leading-none tracking-[0.03em] text-white">
-          CUSTOMISE YOUR {animalName.toUpperCase()}
+          CHOOSE YOUR MASCOT
         </h1>
-        <p className="mb-3 text-center text-xs text-white/30">Drag to rotate · Scroll to zoom</p>
+        <p className="mb-1 text-center text-sm text-white/50">Choose a mascot to represent yourself</p>
+        <p className="mb-3 text-center text-xs text-white/25">Drag to rotate · Scroll to zoom</p>
 
         <div className="mb-4 w-full overflow-hidden rounded-2xl" style={{ height: "220px" }}>
           <canvas ref={canvasRef} className="block w-full h-full" />
@@ -831,7 +896,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
           <ColorSelector title={palette.markingLabel.toUpperCase()} colors={palette.marking} selectedColor={markingColor} onSelectColor={setMarkingColor} />
         </div>
 
-        <PrimaryButton label="LET'S GO!" onClick={onContinue} />
+        <PrimaryButton label="LET'S GO!" onClick={() => {}} />
       </div>
     </div>
   );
@@ -840,17 +905,20 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
 type HandoffScreenProps = {
   gamemasterName: string;
   gamemasterAvatar: string;
+  gamemasterAvatarUrl?: string;
   onPassPhone: () => void;
 };
 
-function HandoffScreen({ gamemasterName, gamemasterAvatar, onPassPhone }: HandoffScreenProps) {
+function HandoffScreen({ gamemasterName, gamemasterAvatar, gamemasterAvatarUrl, onPassPhone }: HandoffScreenProps) {
   return (
     <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
       <div className="flex flex-1 flex-col items-center px-5 pb-8 pt-5">
-        <div className="relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)]">
-          <span className="text-5xl">{gamemasterAvatar}</span>
+        <div className="relative mb-7 mt-[clamp(2rem,10vh,5rem)] flex size-28 items-center justify-center rounded-3xl border-2 border-[#ffd700] bg-[rgba(255,215,0,0.08)] shadow-[0_0_40px_rgba(255,215,0,0.14)] overflow-hidden">
+          {gamemasterAvatarUrl
+            ? <img alt="avatar" className="size-full object-cover" src={gamemasterAvatarUrl} />
+            : <span className="text-5xl">{gamemasterAvatar}</span>}
           <span className="absolute -right-3 -top-3 flex size-10 items-center justify-center rounded-full bg-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.32)]">
             <img alt="" className="size-5" src={ASSETS.crownIcon} />
           </span>
@@ -891,6 +959,7 @@ type LobbyScreenProps = {
   newTeammateName: string;
   setNewTeammateName: (name: string) => void;
   onAddTeammate: () => void;
+  onStartRace: () => void;
 };
 
 function LobbyScreen({
@@ -903,7 +972,8 @@ function LobbyScreen({
   setNewTeammateAvatar,
   newTeammateName,
   setNewTeammateName,
-  onAddTeammate
+  onAddTeammate,
+  onStartRace
 }: LobbyScreenProps) {
   const [editingSquadName, setEditingSquadName] = useState(false);
   const minTeammateCountMet = members.length > 1;
@@ -973,8 +1043,10 @@ function LobbyScreen({
               className="flex h-[74px] items-center gap-3 rounded-[14px] border border-white/5 bg-[#1a1a1a] px-4"
               key={member.id}
             >
-              <span className="flex size-11 items-center justify-center rounded-[14px] bg-white/5 text-2xl">
-                {member.avatar}
+              <span className="flex size-11 items-center justify-center rounded-[14px] bg-white/5 text-2xl overflow-hidden">
+                {member.avatarUrl
+                  ? <img alt="avatar" className="size-full object-cover" src={member.avatarUrl} />
+                  : member.avatar}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -1076,9 +1148,10 @@ function LobbyScreen({
                 : "bg-[rgba(255,107,0,0.15)] text-white/20"
             )}
             disabled={!minTeammateCountMet}
+            onClick={onStartRace}
             type="button"
           >
-            {minTeammateCountMet ? "START THE RACE" : "NEED MORE TEAMMATES"}
+            {minTeammateCountMet ? "CHOOSE YOUR GUIDE!" : "NEED MORE TEAMMATES"}
           </button>
         </div>
       </div>
@@ -1089,11 +1162,12 @@ function LobbyScreen({
 export function ScapePulseFlow() {
   const [screen, setScreen] = useState<FlowScreen>("intro-1");
   const [classCodeChars, setClassCodeChars] = useState<string[]>(Array.from({ length: 6 }, () => ""));
-  const [selectedAvatar, setSelectedAvatar] = useState("🐷");
+  const [selectedAvatar, setSelectedAvatar] = useState("🦊");
+  const [avatarImageUrl, setAvatarImageUrl] = useState("");
   const [playerName, setPlayerName] = useState("Jun");
   const [squadName, setSquadName] = useState("Squad PULSE1");
   const [members, setMembers] = useState<TeamMember[]>([
-    { id: "member-jun", avatar: "🐷", name: "Jun", role: "Gamemaster", isLeader: true }
+    { id: "member-jun", avatar: "🦊", name: "Jun", role: "Gamemaster", isLeader: true }
   ]);
   const [expandedAddTeammate, setExpandedAddTeammate] = useState(false);
   const [newTeammateAvatar, setNewTeammateAvatar] = useState("🐙");
@@ -1211,7 +1285,7 @@ export function ScapePulseFlow() {
         isLeader: true
       }
     ]);
-    setScreen("character-customise");
+    setScreen("handoff");
   };
 
   const addTeammate = () => {
@@ -1281,13 +1355,10 @@ export function ScapePulseFlow() {
           />
         ) : null}
 
-        {screen === "character-customise" ? (
-          <CharacterCustomiseScreen selectedAvatar={selectedAvatar} onContinue={() => setScreen("handoff")} />
-        ) : null}
-
         {screen === "handoff" ? (
           <HandoffScreen
             gamemasterAvatar={selectedAvatar}
+            gamemasterAvatarUrl={avatarImageUrl}
             gamemasterName={playerName}
             onPassPhone={() => setScreen("lobby")}
           />
@@ -1300,11 +1371,19 @@ export function ScapePulseFlow() {
             newTeammateAvatar={newTeammateAvatar}
             newTeammateName={newTeammateName}
             onAddTeammate={addTeammate}
+            onStartRace={() => setScreen("mascot-selection")}
             setExpandedAddTeammate={setExpandedAddTeammate}
             setNewTeammateAvatar={setNewTeammateAvatar}
             setNewTeammateName={setNewTeammateName}
             setSquadName={setSquadName}
             squadName={squadName}
+          />
+        ) : null}
+
+        {screen === "mascot-selection" ? (
+          <CharacterCustomiseScreen
+            selectedAvatar={selectedAvatar}
+            onContinue={() => {}}
           />
         ) : null}
       </main>
