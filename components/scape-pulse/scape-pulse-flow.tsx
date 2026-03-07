@@ -33,6 +33,7 @@ type FlowScreen =
   | "profile"
   | "handoff"
   | "lobby"
+  | "character-selection"
   | "mascot-selection";
 
 type OnboardingSlide = {
@@ -902,6 +903,72 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: { selectedAvat
   );
 }
 
+function CharacterSelectionScreen({ onContinue }: { onContinue: (animal: AnimalType) => void }) {
+  const [selected, setSelected] = useState<AnimalType>("pig");
+  const [previews, setPreviews] = useState<Record<AnimalType, string>>({ pig: "", dog: "", chicken: "" });
+
+  useEffect(() => {
+    const animals: AnimalType[] = ["pig", "dog", "chicken"];
+    animals.forEach((animal) => {
+      renderAvatarPreview({ animal, ...ANIMAL_DEFAULTS[animal] }).then((url) => {
+        setPreviews((prev) => ({ ...prev, [animal]: url }));
+      });
+    });
+  }, []);
+
+  const animalEmoji: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
+      <BrandBar />
+
+      <div className="flex flex-1 flex-col px-5 pb-6 pt-4">
+        <h1 className="mb-1 text-center font-display text-[clamp(1.6rem,7vw,2rem)] leading-none tracking-[0.03em] text-white">
+          CHOOSE YOUR CHARACTER
+        </h1>
+        <p className="mb-6 text-center text-sm text-white/50">Pick a mascot for your adventure</p>
+
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {(["pig", "dog", "chicken"] as AnimalType[]).map((animal) => (
+            <button
+              key={animal}
+              onClick={() => setSelected(animal)}
+              type="button"
+              className={cn(
+                "flex flex-col items-center rounded-2xl border-2 overflow-hidden transition-all duration-200",
+                selected === animal
+                  ? "border-[#ff6b00] bg-[rgba(255,107,0,0.1)] scale-[1.03]"
+                  : "border-white/10 bg-white/5 hover:border-white/20"
+              )}
+            >
+              <div className="w-full overflow-hidden bg-[#0d0d1a]" style={{ aspectRatio: "1" }}>
+                {previews[animal] ? (
+                  <img alt={animal} className="w-full h-full object-cover" src={previews[animal]} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl">
+                    {animalEmoji[animal]}
+                  </div>
+                )}
+              </div>
+              <p
+                className={cn(
+                  "py-2 text-xs font-bold tracking-widest uppercase transition-colors",
+                  selected === animal ? "text-[#ff6b00]" : "text-white/40"
+                )}
+              >
+                {animal}
+              </p>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1" />
+        <PrimaryButton label="Customise" onClick={() => onContinue(selected)} />
+      </div>
+    </div>
+  );
+}
+
 type HandoffScreenProps = {
   gamemasterName: string;
   gamemasterAvatar: string;
@@ -1371,12 +1438,22 @@ export function ScapePulseFlow() {
             newTeammateAvatar={newTeammateAvatar}
             newTeammateName={newTeammateName}
             onAddTeammate={addTeammate}
-            onStartRace={() => setScreen("mascot-selection")}
+            onStartRace={() => setScreen("character-selection")}
             setExpandedAddTeammate={setExpandedAddTeammate}
             setNewTeammateAvatar={setNewTeammateAvatar}
             setNewTeammateName={setNewTeammateName}
             setSquadName={setSquadName}
             squadName={squadName}
+          />
+        ) : null}
+
+        {screen === "character-selection" ? (
+          <CharacterSelectionScreen
+            onContinue={(animal) => {
+              const emojiMap: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
+              setSelectedAvatar(emojiMap[animal]);
+              setScreen("mascot-selection");
+            }}
           />
         ) : null}
 
