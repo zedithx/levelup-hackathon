@@ -1,4 +1,4 @@
-import { READY_PHASE_SEC, SING_PHASE_SEC } from "@/components/singing-game/flow/constants";
+import { SING_PHASE_SEC } from "@/components/singing-game/flow/constants";
 import type {
   DrawingGameMember,
   DrawingGameSong,
@@ -26,7 +26,7 @@ export function buildTurns(members: DrawingGameMember[], song: DrawingGameSong):
     const endSec = Math.min(startSec + SING_PHASE_SEC, trimmedDurationSec);
     const durationSec = Math.max(0, endSec - startSec);
 
-    return { member, memberIndex, startSec, endSec, durationSec, readySec: READY_PHASE_SEC };
+    return { member, memberIndex, startSec, endSec, durationSec };
   });
 }
 

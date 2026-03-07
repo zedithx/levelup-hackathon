@@ -8,6 +8,8 @@ import { DEFAULT_MEMBERS } from "@/components/drawing-game/flow/constants";
 import { FlowShell, Panel, PrimaryButton, ProgressBar } from "@/components/drawing-game/flow/ui";
 import { cn } from "@/components/drawing-game/flow/utils";
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/drawing-game/sketch-canvas";
+import { saveDrawingMemoryAssets } from "@/lib/memory-assets";
+import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const SECRET_WORD_PLACEHOLDER = "Moonwalk";
 const LOOK_DURATION_SEC = 5;
@@ -88,6 +90,25 @@ function turnNumberFromPlayer(activePlayerCount: number, playerIndex: number) {
   return activePlayerCount - playerIndex;
 }
 
+function dataUrlToFile(dataUrl: string, fileName: string) {
+  const [meta, payload] = dataUrl.split(",");
+
+  if (!meta || !payload) {
+    return null;
+  }
+
+  const mimeTypeMatch = meta.match(/^data:(.*?);base64$/);
+  const mimeType = mimeTypeMatch?.[1] ?? "image/png";
+  const byteCharacters = atob(payload);
+  const byteNumbers = new Array(byteCharacters.length);
+
+  for (let index = 0; index < byteCharacters.length; index += 1) {
+    byteNumbers[index] = byteCharacters.charCodeAt(index);
+  }
+
+  return new File([new Uint8Array(byteNumbers)], fileName, { type: mimeType });
+}
+
 export function DrawingRelayFlow() {
   const [draftPlayers, setDraftPlayers] = useState<RelayPlayer[]>(() =>
     DEFAULT_LINEUP.map((player) => ({ ...player }))
@@ -99,6 +120,9 @@ export function DrawingRelayFlow() {
   const [drawings, setDrawings] = useState<RelayDrawing[]>([]);
   const [guessInput, setGuessInput] = useState("");
   const [revealedGuess, setRevealedGuess] = useState("");
+  const [isUploadingDrawings, setIsUploadingDrawings] = useState(false);
+  const [drawingsUploadError, setDrawingsUploadError] = useState<string | null>(null);
+  const [drawingsUploadDone, setDrawingsUploadDone] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const handledTimerKeyRef = useRef<string | null>(null);
   const canvasRef = useRef<SketchCanvasHandle | null>(null);
@@ -159,6 +183,69 @@ export function DrawingRelayFlow() {
     setRevealedGuess(guessInput.trim());
     setScreen({ kind: "reveal" });
   }, [guessInput]);
+
+  const uploadDrawingsToBucket = useCallback(async () => {
+    if (!drawings.length) {
+      return;
+    }
+
+    setIsUploadingDrawings(true);
+    setDrawingsUploadError(null);
+
+    try {
+      const uploadedDrawings: Array<{ src: string; authorName: string }> = [];
+
+      for (let index = 0; index < drawings.length; index += 1) {
+        const drawing = drawings[index];
+        const authorName = activePlayers[drawing.playerIndex]?.name || `Player ${drawing.playerIndex + 1}`;
+        const drawingFile = dataUrlToFile(
+          drawing.imageDataUrl,
+          `drawing-${index + 1}-${authorName.replace(/\\s+/g, "-")}.png`
+        );
+
+        if (!drawingFile) {
+          continue;
+        }
+
+        const uploadResult = await uploadGameAsset({
+          assetType: "drawing",
+          file: drawingFile,
+          playerName: authorName
+        });
+
+        uploadedDrawings.push({
+          authorName,
+          src: uploadResult.publicUrl
+        });
+      }
+
+      if (uploadedDrawings.length) {
+        saveDrawingMemoryAssets(uploadedDrawings);
+      }
+
+      setDrawingsUploadDone(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload drawings.";
+      setDrawingsUploadError(message);
+      setDrawingsUploadDone(false);
+    } finally {
+      setIsUploadingDrawings(false);
+    }
+  }, [activePlayers, drawings]);
+
+  useEffect(() => {
+    if (
+      screen.kind !== "reveal"
+      || !drawings.length
+      || drawingsUploadDone
+      || isUploadingDrawings
+      || drawingsUploadError
+    ) {
+      return;
+    }
+
+    void uploadDrawingsToBucket();
+  }, [drawings.length, drawingsUploadDone, drawingsUploadError, isUploadingDrawings, screen.kind, uploadDrawingsToBucket]);
 
   useEffect(() => {
     if (!timer) {
@@ -265,6 +352,9 @@ export function DrawingRelayFlow() {
     setDrawings([]);
     setGuessInput("");
     setRevealedGuess("");
+    setIsUploadingDrawings(false);
+    setDrawingsUploadError(null);
+    setDrawingsUploadDone(false);
     setScreen({ kind: "secret-word-ready", playerIndex: preparedPlayers.length - 1 });
   };
 
@@ -287,6 +377,9 @@ export function DrawingRelayFlow() {
     setDrawings([]);
     setGuessInput("");
     setRevealedGuess("");
+    setIsUploadingDrawings(false);
+    setDrawingsUploadError(null);
+    setDrawingsUploadDone(false);
   };
 
   const secondsLeft = timer ? Math.max(0, Math.ceil(timer.remainingMs / 1000)) : 0;
@@ -569,6 +662,26 @@ export function DrawingRelayFlow() {
                   />
                 </div>
               ))}
+            </div>
+            <div className="mt-3">
+              {isUploadingDrawings ? (
+                <p className="text-xs text-[#ffd8b2]">Uploading team drawings to bucket...</p>
+              ) : null}
+              {drawingsUploadDone ? (
+                <p className="text-xs text-[#98ffd9]">Team drawings uploaded. Memory carousel now uses these images.</p>
+              ) : null}
+              {drawingsUploadError ? (
+                <p className="text-xs text-[#ffaaaa]">Drawing upload failed: {drawingsUploadError}</p>
+              ) : null}
+              {drawingsUploadError ? (
+                <button
+                  className="mt-2 h-9 rounded-lg border border-white/15 px-3 text-xs text-white/75 transition-colors hover:border-white/30 hover:text-white"
+                  onClick={() => void uploadDrawingsToBucket()}
+                  type="button"
+                >
+                  Retry upload
+                </button>
+              ) : null}
             </div>
           </Panel>
 

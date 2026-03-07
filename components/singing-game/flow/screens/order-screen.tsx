@@ -13,7 +13,7 @@ export function OrderScreen({ turns, onStartNow }: OrderScreenProps) {
         <p className="text-xs tracking-[0.08em] text-[#00d4ff]">PASS ORDER</p>
         <h1 className="mt-2 font-display text-[clamp(2rem,8.8vw,2.4rem)] leading-none">WHO SINGS WHEN</h1>
         <p className="mt-2 text-sm leading-6 text-white/55">
-          The phone follows this order. Every turn is 3s get ready, then 8s sing.
+          The phone follows this order. Turns are continuous at 8 seconds each.
         </p>
       </div>
 
@@ -29,7 +29,7 @@ export function OrderScreen({ turns, onStartNow }: OrderScreenProps) {
             <div className="flex-1">
               <p className="text-base font-semibold text-white">{turn.member.name}</p>
               <p className="text-xs text-white/35">
-                {turn.startSec}s - {turn.endSec}s ({turn.readySec}s ready + {turn.durationSec}s sing)
+                {turn.startSec}s - {turn.endSec}s ({turn.durationSec}s sing)
               </p>
             </div>
           </Panel>

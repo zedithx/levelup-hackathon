@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  ENDING_CAROUSEL_DEFAULT_MEDIA,
   ONBOARDING_SLIDES,
   RACE_FLOW_CONFIG
 } from "@/components/scape-pulse/flow/constants";
+import { useEndingCarouselMedia } from "@/components/scape-pulse/flow/hooks/use-ending-carousel-media";
 import { CameraPermissionScreen } from "@/components/scape-pulse/flow/screens/camera-permission-screen";
 import { CheckpointClearedScreen } from "@/components/scape-pulse/flow/screens/checkpoint-cleared-screen";
 import { ClassCodeScreen } from "@/components/scape-pulse/flow/screens/class-code-screen";
@@ -19,6 +19,7 @@ import { RaceCameraScreen } from "@/components/scape-pulse/flow/screens/race-cam
 import type { FlowScreen, TeamMember } from "@/components/scape-pulse/flow/types";
 
 export function ScapePulseFlow() {
+  const endingCarouselMedia = useEndingCarouselMedia();
   const [screen, setScreen] = useState<FlowScreen>("intro-1");
   const [classCodeChars, setClassCodeChars] = useState<string[]>(Array.from({ length: 6 }, () => ""));
   const [selectedAvatar, setSelectedAvatar] = useState("🦊");
@@ -341,7 +342,7 @@ export function ScapePulseFlow() {
         ) : null}
 
         {screen === "final-destination-carousel" ? (
-          <FinalDestinationCarouselScreen media={ENDING_CAROUSEL_DEFAULT_MEDIA} onBackToLobby={backToLobby} />
+          <FinalDestinationCarouselScreen media={endingCarouselMedia} onBackToLobby={backToLobby} />
         ) : null}
       </main>
     </div>

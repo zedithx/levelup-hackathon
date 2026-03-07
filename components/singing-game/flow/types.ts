@@ -2,7 +2,6 @@ export type DrawingGameScreen =
   | "instructions"
   | "countdown"
   | "order"
-  | "turn-ready"
   | "turn-sing"
   | "summary";
 
@@ -34,5 +33,4 @@ export type TurnAllocation = {
   startSec: number;
   endSec: number;
   durationSec: number;
-  readySec: number;
 };

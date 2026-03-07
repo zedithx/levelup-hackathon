@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   DEFAULT_MEMBERS,
@@ -16,6 +16,35 @@ import { SummaryScreen } from "@/components/singing-game/flow/screens/summary-sc
 import { TurnScreen } from "@/components/singing-game/flow/screens/turn-screen";
 import type { DrawingGameMember, DrawingGameScreen } from "@/components/singing-game/flow/types";
 import { activeLyricIndex, buildTurns, lyricLinesForTurn } from "@/components/singing-game/flow/utils";
+import { saveFinalSongMemoryAsset } from "@/lib/memory-assets";
+import { uploadGameAsset } from "@/lib/upload-game-asset";
+
+function supportedAudioRecorderOptions() {
+  if (typeof MediaRecorder === "undefined") {
+    return undefined;
+  }
+
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+  const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+
+  return mimeType ? { mimeType } : undefined;
+}
+
+function extensionFromAudioType(mimeType: string) {
+  if (mimeType.includes("mpeg")) {
+    return "mp3";
+  }
+
+  if (mimeType.includes("mp4")) {
+    return "m4a";
+  }
+
+  if (mimeType.includes("wav")) {
+    return "wav";
+  }
+
+  return "webm";
+}
 
 export function SingingGameFlow() {
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
@@ -23,6 +52,18 @@ export function SingingGameFlow() {
   const [countdownSec, setCountdownSec] = useState(PRE_GAME_COUNTDOWN_SEC);
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [phaseRemainingMs, setPhaseRemainingMs] = useState(0);
+  const [roundAudioFile, setRoundAudioFile] = useState<File | null>(null);
+  const [roundAudioPreviewUrl, setRoundAudioPreviewUrl] = useState<string | null>(null);
+  const [isCapturingAudio, setIsCapturingAudio] = useState(false);
+  const [isAudioUploading, setIsAudioUploading] = useState(false);
+  const [isAudioUploaded, setIsAudioUploaded] = useState(false);
+  const [hasAttemptedAudioUpload, setHasAttemptedAudioUpload] = useState(false);
+  const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const turns = useMemo(
     () => buildTurns(members, SINGING_GAME_SONG).filter((turn) => turn.durationSec > 0),
@@ -60,43 +101,122 @@ export function SingingGameFlow() {
     return nextTurn ? nextTurn.member.name : null;
   }, [currentTurnIndex, turns]);
 
+  const stopAudioStream = useCallback(() => {
+    if (!audioStreamRef.current) {
+      return;
+    }
+
+    audioStreamRef.current.getTracks().forEach((track) => track.stop());
+    audioStreamRef.current = null;
+  }, []);
+
+  const stopRoundAudioCapture = useCallback(() => {
+    const recorder = audioRecorderRef.current;
+
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    } else {
+      stopAudioStream();
+    }
+
+    setIsCapturingAudio(false);
+  }, [stopAudioStream]);
+
+  const startRoundAudioCapture = useCallback(async () => {
+    if (typeof MediaRecorder === "undefined") {
+      setRecordingError("This browser does not support audio recording.");
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setRecordingError("Microphone capture is not supported on this device.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const recorder = new MediaRecorder(stream, supportedAudioRecorderOptions());
+
+      audioStreamRef.current = stream;
+      audioRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onerror = () => {
+        setRecordingError("Audio recording failed during the singing round.");
+        setIsCapturingAudio(false);
+        stopAudioStream();
+      };
+
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || audioChunksRef.current[0]?.type || "audio/webm";
+
+        if (!audioChunksRef.current.length) {
+          setRecordingError("No team audio was captured. Please try another round.");
+          stopAudioStream();
+          return;
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const extension = extensionFromAudioType(mimeType);
+        const audioFile = new File([audioBlob], `singing-round-${Date.now()}.${extension}`, {
+          type: mimeType
+        });
+
+        setRoundAudioFile(audioFile);
+        audioChunksRef.current = [];
+        stopAudioStream();
+      };
+
+      recorder.start(250);
+      setRecordingError(null);
+      setIsCapturingAudio(true);
+    } catch {
+      setRecordingError("Microphone permission is required to capture the team singing memory.");
+    }
+  }, [stopAudioStream]);
+
   const resetRuntimeState = useCallback(() => {
     setCountdownSec(PRE_GAME_COUNTDOWN_SEC);
     setCurrentTurnIndex(0);
     setPhaseRemainingMs(0);
   }, []);
 
+  const resetAudioUploadState = useCallback(() => {
+    setRoundAudioFile(null);
+    setIsAudioUploading(false);
+    setIsAudioUploaded(false);
+    setHasAttemptedAudioUpload(false);
+    setAudioUploadError(null);
+    setRecordingError(null);
+  }, []);
+
   const startRound = useCallback(() => {
+    stopRoundAudioCapture();
     resetRuntimeState();
+    resetAudioUploadState();
+    void startRoundAudioCapture();
     setScreen("countdown");
-  }, [resetRuntimeState]);
+  }, [resetAudioUploadState, resetRuntimeState, startRoundAudioCapture, stopRoundAudioCapture]);
 
   const goToSetup = useCallback(() => {
+    stopRoundAudioCapture();
     resetRuntimeState();
+    resetAudioUploadState();
     setScreen("instructions");
-  }, [resetRuntimeState]);
-
-  const startTurnReady = useCallback(
-    (turnIndex: number) => {
-      const turn = turns[turnIndex];
-
-      if (!turn) {
-        setScreen("summary");
-        return;
-      }
-
-      setCurrentTurnIndex(turnIndex);
-      setPhaseRemainingMs(Math.round(turn.readySec * 1000));
-      setScreen("turn-ready");
-    },
-    [turns]
-  );
+  }, [resetAudioUploadState, resetRuntimeState, stopRoundAudioCapture]);
 
   const startTurnSing = useCallback(
     (turnIndex: number) => {
       const turn = turns[turnIndex];
 
       if (!turn) {
+        stopRoundAudioCapture();
         setScreen("summary");
         return;
       }
@@ -105,8 +225,41 @@ export function SingingGameFlow() {
       setPhaseRemainingMs(Math.round(turn.durationSec * 1000));
       setScreen("turn-sing");
     },
-    [turns]
+    [stopRoundAudioCapture, turns]
   );
+
+  const uploadRoundAudio = useCallback(async () => {
+    if (!roundAudioFile) {
+      return;
+    }
+
+    setIsAudioUploading(true);
+    setAudioUploadError(null);
+
+    try {
+      const uploadResult = await uploadGameAsset({
+        assetType: "singing",
+        file: roundAudioFile
+      });
+      const voiceContributors = members
+        .map((member) => member.name.trim())
+        .filter(Boolean);
+
+      saveFinalSongMemoryAsset({
+        audioSrc: uploadResult.publicUrl,
+        songTitle: SINGING_GAME_SONG.title,
+        voiceContributors
+      });
+
+      setIsAudioUploaded(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload singing audio.";
+      setAudioUploadError(message);
+      setIsAudioUploaded(false);
+    } finally {
+      setIsAudioUploading(false);
+    }
+  }, [members, roundAudioFile]);
 
   const updateMemberName = useCallback((memberId: string, value: string) => {
     setMembers((currentMembers) =>
@@ -148,6 +301,20 @@ export function SingingGameFlow() {
   }, []);
 
   useEffect(() => {
+    if (!roundAudioFile) {
+      setRoundAudioPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(roundAudioFile);
+    setRoundAudioPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [roundAudioFile]);
+
+  useEffect(() => {
     if (screen !== "countdown") {
       return;
     }
@@ -172,29 +339,25 @@ export function SingingGameFlow() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      startTurnReady(0);
+      startTurnSing(0);
     }, ORDER_REVEAL_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [screen, startTurnReady]);
+  }, [screen, startTurnSing]);
 
   useEffect(() => {
-    if (screen !== "turn-ready" && screen !== "turn-sing") {
+    if (screen !== "turn-sing") {
       return;
     }
 
     if (phaseRemainingMs <= 0) {
-      if (screen === "turn-ready") {
-        startTurnSing(currentTurnIndex);
-        return;
-      }
-
       const nextTurnIndex = currentTurnIndex + 1;
       if (nextTurnIndex < turns.length) {
-        startTurnReady(nextTurnIndex);
+        startTurnSing(nextTurnIndex);
       } else {
+        stopRoundAudioCapture();
         setScreen("summary");
       }
       return;
@@ -211,10 +374,31 @@ export function SingingGameFlow() {
     currentTurnIndex,
     phaseRemainingMs,
     screen,
-    startTurnReady,
     startTurnSing,
+    stopRoundAudioCapture,
     turns.length
   ]);
+
+  useEffect(() => {
+    if (
+      screen !== "summary"
+      || !roundAudioFile
+      || isAudioUploaded
+      || isAudioUploading
+      || hasAttemptedAudioUpload
+    ) {
+      return;
+    }
+
+    setHasAttemptedAudioUpload(true);
+    void uploadRoundAudio();
+  }, [hasAttemptedAudioUpload, isAudioUploaded, isAudioUploading, roundAudioFile, screen, uploadRoundAudio]);
+
+  useEffect(() => {
+    return () => {
+      stopRoundAudioCapture();
+    };
+  }, [stopRoundAudioCapture]);
 
   if (screen === "instructions") {
     return (
@@ -234,15 +418,14 @@ export function SingingGameFlow() {
   }
 
   if (screen === "order") {
-    return <OrderScreen onStartNow={() => startTurnReady(0)} turns={turns} />;
+    return <OrderScreen onStartNow={() => startTurnSing(0)} turns={turns} />;
   }
 
-  if ((screen === "turn-ready" || screen === "turn-sing") && activeTurn) {
+  if (screen === "turn-sing" && activeTurn) {
     return (
       <TurnScreen
         activeLyricLineIndex={activeLyricLineIndex}
         lyrics={lyricsForActiveTurn}
-        mode={screen === "turn-ready" ? "ready" : "sing"}
         nextMemberName={nextMemberName}
         remainingMs={phaseRemainingMs}
         turn={activeTurn}
@@ -250,5 +433,20 @@ export function SingingGameFlow() {
     );
   }
 
-  return <SummaryScreen onBackToSetup={goToSetup} onReplay={startRound} turns={turns} />;
+  return (
+    <SummaryScreen
+      audioPreviewUrl={roundAudioPreviewUrl}
+      audioUploadError={audioUploadError}
+      isAudioUploaded={isAudioUploaded}
+      isAudioUploading={isAudioUploading}
+      onBackToSetup={goToSetup}
+      onReplay={startRound}
+      onRetryAudioUpload={() => {
+        setHasAttemptedAudioUpload(true);
+        void uploadRoundAudio();
+      }}
+      recordingError={isCapturingAudio ? null : recordingError}
+      turns={turns}
+    />
+  );
 }

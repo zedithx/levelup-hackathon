@@ -4,6 +4,8 @@ import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GhostButton, Panel, PrimaryButton, ProgressBar } from "@/components/drawing-game/flow/ui";
+import { saveDanceMemoryAsset } from "@/lib/memory-assets";
+import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const DANCE_TITLE = "Viral TikTok Team Dance";
 const MAX_RECORDING_SEC = 15;
@@ -44,6 +46,18 @@ function supportedRecorderOptions() {
   return mimeType ? { mimeType } : undefined;
 }
 
+function extensionFromVideoType(mimeType: string) {
+  if (mimeType.includes("mp4")) {
+    return "mp4";
+  }
+
+  if (mimeType.includes("webm")) {
+    return "webm";
+  }
+
+  return "webm";
+}
+
 export function DanceFlow() {
   const [screen, setScreen] = useState<DanceScreen>("watch");
   const [watchCount, setWatchCount] = useState(1);
@@ -53,6 +67,7 @@ export function DanceFlow() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSec, setRecordingSec] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [recordingFile, setRecordingFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -61,7 +76,6 @@ export function DanceFlow() {
   const chunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
-  const submitTimeoutRef = useRef<number | null>(null);
   const shouldOpenReviewAfterStopRef = useRef(false);
 
   const stopStream = useCallback(() => {
@@ -95,6 +109,7 @@ export function DanceFlow() {
 
       return null;
     });
+    setRecordingFile(null);
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -186,6 +201,8 @@ export function DanceFlow() {
 
       const recordingBlob = new Blob(chunksRef.current, { type: blobType });
       const nextUrl = URL.createObjectURL(recordingBlob);
+      const extension = extensionFromVideoType(blobType);
+      const nextFile = new File([recordingBlob], `dance-${Date.now()}.${extension}`, { type: blobType });
 
       setRecordingUrl((currentUrl) => {
         if (currentUrl) {
@@ -194,6 +211,7 @@ export function DanceFlow() {
 
         return nextUrl;
       });
+      setRecordingFile(nextFile);
 
       setScreen("review");
       stopStream();
@@ -235,24 +253,37 @@ export function DanceFlow() {
 
         return nextUrl;
       });
+      setRecordingFile(file);
       setScreen("review");
       setCameraError(null);
     },
     []
   );
 
-  const submitRecording = useCallback(() => {
-    if (!recordingUrl || isSubmitting) {
+  const submitRecording = useCallback(async () => {
+    if (!recordingFile || isSubmitting) {
       return;
     }
 
     setIsSubmitting(true);
-    submitTimeoutRef.current = window.setTimeout(() => {
+    setCameraError(null);
+
+    try {
+      const uploadResult = await uploadGameAsset({
+        assetType: "dance",
+        file: recordingFile
+      });
+      saveDanceMemoryAsset(uploadResult.publicUrl);
+
       setIsSubmitting(false);
       setScreen("submitted");
       stopStream();
-    }, 1000);
-  }, [isSubmitting, recordingUrl, stopStream]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload video.";
+      setIsSubmitting(false);
+      setCameraError(message);
+    }
+  }, [isSubmitting, recordingFile, stopStream]);
 
   const returnToRecord = useCallback(() => {
     clearRecordingUrl();
@@ -320,10 +351,6 @@ export function DanceFlow() {
     return () => {
       clearRecordingTimers();
       stopStream();
-
-      if (submitTimeoutRef.current) {
-        window.clearTimeout(submitTimeoutRef.current);
-      }
 
       if (recordingUrl) {
         URL.revokeObjectURL(recordingUrl);
@@ -481,9 +508,9 @@ export function DanceFlow() {
 
               <div className="mt-auto space-y-3">
                 <PrimaryButton
-                  disabled={!recordingUrl || isSubmitting}
-                  label={isSubmitting ? "Submitting..." : "Submit video"}
-                  onClick={submitRecording}
+                  disabled={!recordingFile || isSubmitting}
+                  label={isSubmitting ? "Uploading..." : "Submit video"}
+                  onClick={() => void submitRecording()}
                 />
                 <GhostButton className="h-10 w-full" label="Retake dance" onClick={returnToRecord} />
               </div>

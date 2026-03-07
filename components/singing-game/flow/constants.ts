@@ -6,7 +6,6 @@ export const PHASE_TICK_MS = 100;
 export const MIN_MEMBERS = 2;
 export const MAX_MEMBERS = 6;
 
-export const READY_PHASE_SEC = 3;
 export const SING_PHASE_SEC = 8;
 
 export const MEMBER_EMOJI_POOL = ["🦊", "🐯", "🦁", "🐺", "🐉", "🦈", "🎤", "🔥"];
