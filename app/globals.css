@@ -75,6 +75,38 @@ body {
   }
 }
 
+@keyframes flow-carousel-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(10px) saturate(75%);
+  }
+
+  35% {
+    opacity: 1;
+    filter: blur(0) saturate(100%);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0) saturate(110%);
+  }
+}
+
+@keyframes flow-audio-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scaleY(1.9);
+    opacity: 1;
+  }
+}
+
 @keyframes flow-spin {
   from {
     transform: rotate(0deg);
@@ -110,6 +142,16 @@ body {
     will-change: transform, opacity;
   }
 
+  .anim-carousel-reveal {
+    animation: flow-carousel-reveal 1400ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+    will-change: transform, opacity, filter;
+  }
+
+  .anim-audio-wave {
+    animation: flow-audio-wave 1.3s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+
   .anim-soft-spin {
     animation: flow-spin 1.4s linear infinite;
   }
@@ -121,6 +163,8 @@ body {
   .anim-float,
   .anim-glow,
   .anim-pop-in,
+  .anim-carousel-reveal,
+  .anim-audio-wave,
   .anim-soft-spin {
     animation: none !important;
     opacity: 1 !important;

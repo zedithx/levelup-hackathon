@@ -6,6 +6,7 @@ type MindARImageSceneProps = {
   targetMindFileSrc: string;
   scanningEnabled: boolean;
   onTargetFound: () => void;
+  onArReadyChange?: (isReady: boolean) => void;
 };
 
 type MindARSystem = {
@@ -46,7 +47,12 @@ async function ensureMindARLoaded() {
   await mindARBootstrapPromise;
 }
 
-export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetFound }: MindARImageSceneProps) {
+export function MindARImageScene({
+  targetMindFileSrc,
+  scanningEnabled,
+  onTargetFound,
+  onArReadyChange
+}: MindARImageSceneProps) {
   const sceneRef = useRef<MindARSceneElement | null>(null);
   const targetEntityRef = useRef<HTMLElement | null>(null);
   const hasStartedRef = useRef(false);
@@ -70,10 +76,12 @@ export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetF
         if (!isCancelled) {
           setLoadError(null);
           setIsSceneReady(true);
+          onArReadyChange?.(false);
         }
       } catch (error) {
         if (!isCancelled) {
           setLoadError(error instanceof Error ? error.message : "Unable to initialize MindAR");
+          onArReadyChange?.(false);
         }
       }
     };
@@ -82,8 +90,9 @@ export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetF
 
     return () => {
       isCancelled = true;
+      onArReadyChange?.(false);
     };
-  }, []);
+  }, [onArReadyChange]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -146,11 +155,13 @@ export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetF
     const handleArReady = () => {
       setIsArReady(true);
       setLoadError(null);
+      onArReadyChange?.(true);
     };
 
     const handleArError = () => {
       setLoadError("Unable to start camera AR. Check camera permission and target file URL.");
       setIsArReady(false);
+      onArReadyChange?.(false);
     };
 
     scene.addEventListener("arReady", handleArReady as EventListener);
@@ -160,7 +171,7 @@ export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetF
       scene.removeEventListener("arReady", handleArReady as EventListener);
       scene.removeEventListener("arError", handleArError as EventListener);
     };
-  }, [isSceneReady]);
+  }, [isSceneReady, onArReadyChange]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -173,25 +184,26 @@ export function MindARImageScene({ targetMindFileSrc, scanningEnabled, onTargetF
       return;
     }
 
-    if (scanningEnabled) {
-      if (!hasStartedRef.current) {
-        hasStartedRef.current = true;
-        setHasStarted(true);
-        setIsArReady(false);
-        mindarSystem.start?.();
-        return;
-      }
-
-      if (isArReady) {
-        mindarSystem.unpause?.();
-      }
+    if (!hasStartedRef.current) {
+      hasStartedRef.current = true;
+      setHasStarted(true);
+      setIsArReady(false);
+      onArReadyChange?.(false);
+      mindarSystem.start?.();
       return;
     }
 
-    if (hasStartedRef.current && isArReady) {
-      mindarSystem.pause?.(true);
+    if (!isArReady) {
+      return;
     }
-  }, [isArReady, isSceneReady, scanningEnabled]);
+
+    if (scanningEnabled) {
+      mindarSystem.unpause?.();
+      return;
+    }
+
+    mindarSystem.pause?.(true);
+  }, [isArReady, isSceneReady, scanningEnabled, onArReadyChange]);
 
   useEffect(() => {
     const scene = sceneRef.current;
