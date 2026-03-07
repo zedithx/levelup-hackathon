@@ -59,6 +59,18 @@ export const EMOJI_TO_ANIMAL: Record<string, AnimalType> = {
   "🐔": "chicken",
 };
 
+export const ANIMAL_SPEAKER: Record<AnimalType, string> = {
+  pig:     "PINGO 🐷",
+  dog:     "PINGO 🐶",
+  chicken: "PINGO 🐔",
+};
+
+export const ANIMAL_EMOJI: Record<AnimalType, string> = {
+  pig:     "🐷",
+  dog:     "🐶",
+  chicken: "🐔",
+};
+
 function avatarMat(color: string, roughness = 0.75, metalness = 0) {
   return new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness, metalness });
 }

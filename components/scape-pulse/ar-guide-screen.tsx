@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildAnimalAvatar, ensureThree, type AvatarConfig, type AnimalType } from "./avatar-builders";
+import { buildAnimalAvatar, ensureThree, ANIMAL_SPEAKER, type AvatarConfig, type AnimalType } from "./avatar-builders";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -32,31 +32,34 @@ type Props = {
 
 // ── Dialogue & SFX ───────────────────────────────────────────────────────────
 
-type SfxType = "oink-snuffle" | "grunt" | "oinks" | "bark" | "cluck" | "clink";
+type SfxType =
+  | "oink-snuffle" | "grunt" | "oinks"          // pig
+  | "bark" | "tail-thump" | "panting" | "growl" | "bark-fade"  // dog
+  | "bagock" | "peck" | "cluck" | "cluck-retreat"               // chicken
+  | "clink";                                     // shared exit chime
 type DialogueLine = { sfx: SfxType; text: string };
 
 const ANIMAL_DIALOGUE: Record<AnimalType, DialogueLine[]> = {
   pig: [
-    { sfx: "oink-snuffle", text: "Snort... is this thing on? Finally! A human with enough energy to actually move. I'm Hamilton, and I'm here to make sure you don't just 'hang out'—we're here to win." },
+    { sfx: "oink-snuffle", text: "Snort... is this thing on? Finally! A human with enough energy to actually move. I'm Pingo, and I'm here to make sure you don't just 'hang out'—we're here to win." },
     { sfx: "grunt",        text: "Check the map. We're heading to the belly of the beast. Basement Level 1. I heard there's a sweet ride parked down there that's worth more than a pile of truffles." },
     { sfx: "oinks",        text: "Don't just stand there like a ceramic piggy bank! Move those trotters and find that car. First one there gets the glory. Chop-chop, let's go!" },
     { sfx: "clink",        text: "" },
   ],
   dog: [
-    { sfx: "bark",  text: "Woof! Stick close and keep moving — I know every shortcut. Let's track down that checkpoint!" },
-    { sfx: "clink", text: "" },
+    { sfx: "tail-thump", text: "Scanning scent... Sniff, sniff... Found you! I'm Pingo, your tactical K9 for today's mission. You look like you can run — good, because we've got ground to cover and a leaderboard to climb!" },
+    { sfx: "panting",    text: "Listen up, Recruit! *SCAPE is our territory today, but the first secret is buried deep. I'm picking up a metallic scent from the underground — way down in Basement 1." },
+    { sfx: "growl",      text: "There's a legendary beast on wheels hiding down there. If you find it, you unlock the first piece of the puzzle. Don't let the other packs beat us to it. Let's hunt! WOO-HOOO!" },
+    { sfx: "bark-fade",  text: "" },
   ],
   chicken: [
-    { sfx: "cluck", text: "Bwok bwok! No time for pecking around — follow me and we'll reach the checkpoint before anyone else!" },
-    { sfx: "clink", text: "" },
+    { sfx: "bagock", text: "Bawk! Look alive! The sky isn't falling, but our ranking will be if you don't start moving! I'm Pingo, and I've got the intel you need." },
+    { sfx: "peck",   text: "First objective is a deep-dive. We're going to the Basement. Why? Because that's where the 'cool' stuff is hidden, and I'm too aerodynamic for the stairs — you'll have to take point!" },
+    { sfx: "cluck",  text: "Your target is a car. Big, shiny, and definitely not a coop. Find it in B1, scan the code, and prove you aren't just a flightless bird. FLAP TO IT!" },
+    { sfx: "cluck-retreat", text: "" },
   ],
 };
 
-const ANIMAL_SPEAKER: Record<AnimalType, string> = {
-  pig:     "HAMILTON 🐷",
-  dog:     "REX 🐶",
-  chicken: "CLUCKY 🐔",
-};
 
 function playSfx(type: SfxType): void {
   if (typeof window === "undefined") return;
@@ -75,13 +78,44 @@ function playSfx(type: SfxType): void {
       osc.start(startAt); osc.stop(startAt + duration);
     };
     switch (type) {
+      // ── Pig ──────────────────────────────────────────────────────────────
       case "oink-snuffle": play(900, 380, 0.14, "sawtooth", 0.28); break;
       case "grunt":        play(180, 110, 0.22, "sine",     0.38); break;
       case "oinks":        play(750, 340, 0.11, "sawtooth", 0.25);
                            play(700, 320, 0.10, "sawtooth", 0.22, t + 0.19); break;
+      // ── Dog ──────────────────────────────────────────────────────────────
       case "bark":         play(420, 200, 0.12, "square",   0.22); break;
+      case "tail-thump":   // three low thumps + excited woof
+                           play(90, 70, 0.10, "sine", 0.45);
+                           play(90, 70, 0.10, "sine", 0.45, t + 0.14);
+                           play(90, 70, 0.10, "sine", 0.45, t + 0.27);
+                           play(480, 220, 0.14, "square", 0.28, t + 0.42); break;
+      case "panting":      // two breathy whooshes
+                           play(320, 180, 0.18, "sine", 0.18);
+                           play(300, 160, 0.16, "sine", 0.16, t + 0.28); break;
+      case "growl":        play(95, 75, 0.32, "sawtooth", 0.34); break;
+      case "bark-fade":    play(440, 210, 0.13, "square", 0.26);
+                           play(400, 190, 0.11, "square", 0.18, t + 0.22);
+                           play(360, 170, 0.09, "square", 0.12, t + 0.40); break;
+      // ── Chicken ──────────────────────────────────────────────────────────
+      case "bagock":       // chaotic wing flaps then BA-GOCK
+                           play(320, 480, 0.06, "sawtooth", 0.22);
+                           play(340, 500, 0.05, "sawtooth", 0.20, t + 0.08);
+                           play(360, 520, 0.06, "sawtooth", 0.22, t + 0.15);
+                           play(800, 1400, 0.18, "triangle", 0.34, t + 0.26); break;
+      case "peck":         // rapid short clicks
+                           play(1100, 900, 0.04, "square", 0.30);
+                           play(1050, 860, 0.04, "square", 0.28, t + 0.07);
+                           play(1080, 880, 0.04, "square", 0.28, t + 0.14);
+                           play(1100, 900, 0.04, "square", 0.30, t + 0.21); break;
       case "cluck":        play(600, 900, 0.08, "triangle", 0.20);
                            play(600, 880, 0.07, "triangle", 0.18, t + 0.12); break;
+      case "cluck-retreat":// retreating bawk-bawk-bawk-ba-gock (descending volume)
+                           play(700, 500, 0.09, "triangle", 0.28);
+                           play(680, 480, 0.08, "triangle", 0.24, t + 0.14);
+                           play(660, 460, 0.07, "triangle", 0.20, t + 0.27);
+                           play(750, 1300, 0.18, "triangle", 0.22, t + 0.42); break;
+      // ── Shared ───────────────────────────────────────────────────────────
       case "clink":        play(1800, 900, 0.35, "sine",    0.38); break;
     }
     setTimeout(() => ctx.close(), 1200);
@@ -113,6 +147,7 @@ export function ArGuideScreen({ config, onExit }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dialogueIndex, setDialogueIndex] = useState(-1);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
+  const [isGuideMode, setIsGuideMode] = useState(false);
   // Stable ref so the animation-loop closure can call setTriggerMsg without re-creating
   const setTriggerMsgRef = useRef(setTriggerMsg);
 
@@ -315,20 +350,44 @@ export function ArGuideScreen({ config, onExit }: Props) {
         // ── Distance-based meme triggers ─────────────────────────────────
         if (t - lastTriggerTime > TRIGGER_COOLDOWN) {
           const dist = bobGroup.position.distanceTo(camPos);
+          const animalEmoji = config.animal === "pig" ? "🐷" : config.animal === "dog" ? "🐶" : "🐔";
+          const hurryLines: Record<string, string[]> = {
+            pig: [
+              `${animalEmoji} Pingo: Oi! My trotters move faster than that — keep up!`,
+              `${animalEmoji} Pingo: Don't just stare at my tail!`,
+              `${animalEmoji} Pingo: Move those trotters — we're burning daylight!`,
+              `${animalEmoji} Pingo: I didn't sign up to be a screensaver. MOVE.`,
+            ],
+            dog: [
+              `${animalEmoji} Pingo: Come on, Recruit! I'm losing the scent waiting for you!`,
+              `${animalEmoji} Pingo: Left paw, right paw — that's all it takes. MOVE IT!`,
+              `${animalEmoji} Pingo: Other packs are already on the trail. Don't fall behind!`,
+              `${animalEmoji} Pingo: I said HUNT, not HAUNT. Pick up the pace!`,
+            ],
+            chicken: [
+              `${animalEmoji} Pingo: BAWK! My wings are faster than your legs — somehow!`,
+              `${animalEmoji} Pingo: Don't be a sitting duck — FLAP TO IT!`,
+              `${animalEmoji} Pingo: I crossed the road faster than you're crossing this floor!`,
+              `${animalEmoji} Pingo: BA-GOCK! Are you molting or moving? MOVE!`,
+            ],
+          };
+          const satisfiedLine: Record<string, string> = {
+            pig:     `${animalEmoji} Pingo: *satisfied snuffle* Now we're talking.`,
+            dog:     `${animalEmoji} Pingo: *happy panting* Good pace — I can smell victory!`,
+            chicken: `${animalEmoji} Pingo: *approving cluck* NOW that's the pace! Keep flapping!`,
+          };
+          const hurrySfx: Record<string, SfxType> = { pig: "oinks", dog: "bark", chicken: "bagock" };
+          const satisfiedSfx: Record<string, SfxType> = { pig: "grunt", dog: "panting", chicken: "cluck" };
+          const animal = config.animal;
           if (dist > 3) {
-            const hurryLines = [
-              "🐷 Oi! My trotters move faster than that — keep up!",
-              "🐷 Don't just stare at my tail!",
-              "🐷 Move those trotters — we're burning daylight!",
-              "🐷 I didn't sign up to be a screensaver. MOVE.",
-            ];
-            setTriggerMsgRef.current(hurryLines[Math.floor(Math.random() * hurryLines.length)]);
-            playSfx("oinks");
+            const lines = hurryLines[animal];
+            setTriggerMsgRef.current(lines[Math.floor(Math.random() * lines.length)]);
+            playSfx(hurrySfx[animal]);
             lastTriggerTime = t;
             facingUserUntilRef.current = t + 3;
           } else if (dist < 1.5) {
-            setTriggerMsgRef.current("🐷 *satisfied snuffle* Now we're talking.");
-            playSfx("grunt");
+            setTriggerMsgRef.current(satisfiedLine[animal]);
+            playSfx(satisfiedSfx[animal]);
             lastTriggerTime = t;
             facingUserUntilRef.current = t + 3;
           }
@@ -380,6 +439,7 @@ export function ArGuideScreen({ config, onExit }: Props) {
     if (!line || line.text !== "") return;
     walkingAwayRef.current = true;
     guideModeRef.current = true;
+    setIsGuideMode(true);
   }, [dialogueIndex, config.animal]);
 
   const advanceDialogue = useCallback(() => {
@@ -450,6 +510,25 @@ export function ArGuideScreen({ config, onExit }: Props) {
                 </div>
               </div>
             ) : null}
+
+            {/* Checkpoint 1 reminder – visible throughout guide mode */}
+            {isGuideMode && (
+              <div className="pointer-events-none absolute top-6 inset-x-4 flex justify-center">
+                <div className="flex w-full max-w-[360px] items-center gap-3 rounded-2xl border border-[#ff6b00]/30 bg-black/75 px-4 py-3 backdrop-blur-sm">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(255,107,0,0.2)] text-xl">
+                    📍
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[0.6rem] font-bold tracking-[0.18em] text-[#ff6b00]">CHECKPOINT 1</p>
+                    <p className="truncate text-sm font-semibold text-white">Basement Level 1</p>
+                    <p className="text-[0.7rem] text-white/50">Follow your guide to the destination</p>
+                  </div>
+                  <div className="ml-auto shrink-0 rounded-full bg-[#ff6b00] px-2 py-0.5 text-[0.6rem] font-bold text-white">
+                    ACTIVE
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Exit button – always visible once AR is active */}
             <div className="pointer-events-auto absolute bottom-8 inset-x-0 flex justify-center px-6">

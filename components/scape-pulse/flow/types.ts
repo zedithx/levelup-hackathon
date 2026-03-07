@@ -7,6 +7,9 @@ export type FlowScreen =
   | "profile"
   | "handoff"
   | "lobby"
+  | "character-selection"
+  | "mascot-selection"
+  | "ar-guide"
   | "camera-permission"
   | "ar-race"
   | "checkpoint-cleared"
@@ -52,6 +55,8 @@ export type RaceFlowConfig = {
     targetMindFileSrc: string;
   };
   dialogue: RaceDialogueStep[];
+  /** Set at runtime once the player finishes mascot customisation. */
+  avatarConfig?: import("@/components/scape-pulse/avatar-builders").AvatarConfig;
 };
 
 export type EndingCarouselMedia = {
