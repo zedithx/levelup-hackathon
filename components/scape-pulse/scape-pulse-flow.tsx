@@ -1,5 +1,5 @@
 "use client";
-
+import { ASSETS } from "@/components/scape-pulse/flow/constants";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArGuideScreen } from "@/components/scape-pulse/ar-guide-screen";
 import { ANIMAL_DEFAULTS } from "@/components/scape-pulse/avatar-builders";
