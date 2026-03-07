@@ -6,11 +6,11 @@ import { ANIMAL_DEFAULTS } from "@/components/scape-pulse/avatar-builders";
 import type { AnimalType, AvatarConfig } from "@/components/scape-pulse/avatar-builders";
 
 import {
-  ASSETS,
-  ENDING_CAROUSEL_DEFAULT_MEDIA,
   ONBOARDING_SLIDES,
   RACE_FLOW_CONFIG
 } from "@/components/scape-pulse/flow/constants";
+import { useEndingCarouselMedia } from "@/components/scape-pulse/flow/hooks/use-ending-carousel-media";
+import { CameraPermissionScreen } from "@/components/scape-pulse/flow/screens/camera-permission-screen";
 import { CheckpointClearedScreen } from "@/components/scape-pulse/flow/screens/checkpoint-cleared-screen";
 import { ClassCodeScreen } from "@/components/scape-pulse/flow/screens/class-code-screen";
 import { FinalDestinationCarouselScreen } from "@/components/scape-pulse/flow/screens/final-destination-carousel-screen";
@@ -523,6 +523,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
 // ── Main flow component ───────────────────────────────────────────────────────
 
 export function ScapePulseFlow() {
+  const endingCarouselMedia = useEndingCarouselMedia();
   const [screen, setScreen] = useState<FlowScreen>("intro-1");
   const [classCodeChars, setClassCodeChars] = useState<string[]>(Array.from({ length: 6 }, () => ""));
   const [selectedAvatar, setSelectedAvatar] = useState("🦊");
@@ -638,7 +639,7 @@ export function ScapePulseFlow() {
   }, [screen]);
 
   return (
-    <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.12),transparent_35%),#050505] md:px-6 md:py-8">
+    <div className="anim-ambient-bg min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.12),transparent_35%),#050505] md:px-6 md:py-8">
       <main className="mx-auto min-h-[100dvh] w-full max-w-[393px] overflow-x-hidden bg-[#0a0a0a] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] md:min-h-[852px] md:rounded-[24px]">
         {activeSlide ? (
           <OnboardingScreen onNext={advanceOnboarding} onSkip={() => setScreen("class-code")} slide={activeSlide} />
@@ -740,7 +741,7 @@ export function ScapePulseFlow() {
         ) : null}
 
         {screen === "final-destination-carousel" ? (
-          <FinalDestinationCarouselScreen media={ENDING_CAROUSEL_DEFAULT_MEDIA} onBackToLobby={backToLobby} />
+          <FinalDestinationCarouselScreen media={endingCarouselMedia} onBackToLobby={backToLobby} />
         ) : null}
       </main>
     </div>

@@ -63,6 +63,19 @@ Starter template with:
 - Keep only placeholder variable names in `.env.example`.
 - When a new integration needs credentials, add the variable name(s) to `.env.example` and then fill real values in `.env.local`.
 
+## Bucket Upload Setup (Game Memories)
+
+This project includes `/api/storage/upload`, which uploads selfie, dance, drawing, and singing assets into Supabase Storage and then uses those URLs in the ending memory carousel.
+
+Add these to `.env.local`:
+
+- `SUPABASE_STORAGE_URL` (your storage endpoint; your provided S3 URL works)
+- `SUPABASE_STORAGE_SERVICE_KEY` (Supabase service role key)
+- `SUPABASE_STORAGE_BUCKET` (bucket name for memories)
+- `SUPABASE_STORAGE_PUBLIC_URL_BASE` (optional public URL base override)
+
+For direct playback in the frontend carousel, the bucket should be public.
+
 ## Migrations
 
 Create a migration:

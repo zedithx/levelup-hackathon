@@ -27,7 +27,7 @@ export function InstructionsScreen({
         <p className="text-xs tracking-[0.08em] text-[#ff6b00]">SINGING GAME FLOW</p>
         <h1 className="mt-2 font-display text-[clamp(2rem,8.8vw,2.4rem)] leading-none">SING RELAY</h1>
         <p className="mt-2 text-sm leading-6 text-white/60">
-          Everyone gets a turn. Each player gets a 3 second get-ready screen, then an 8 second singing window.
+          Everyone sings in one continuous flow. Each player gets an 8 second singing window.
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export function InstructionsScreen({
         </p>
         <p className="mt-1 text-sm text-white/70">
           Members: <span className="font-bold text-white">{members.length}</span> | Per member:{" "}
-          <span className="font-bold text-white">3s ready + 8s sing</span>
+          <span className="font-bold text-white">8s sing</span>
         </p>
       </Panel>
 
@@ -69,7 +69,7 @@ export function InstructionsScreen({
                 value={turn.member.name}
               />
               <p className="mt-1 text-xs text-white/35">
-                Turn {turn.memberIndex + 1}: {turn.readySec}s get ready + {turn.durationSec}s sing
+                Turn {turn.memberIndex + 1}: {turn.durationSec}s sing
               </p>
             </div>
 
@@ -108,7 +108,7 @@ export function InstructionsScreen({
       <Panel className="anim-fade-up mt-4 border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.08)]">
         <p className="text-xs text-white/45">FLOW ORDER</p>
         <p className="mt-1 text-sm leading-6 text-white/70">
-          Instruction to 3 second countdown to member order reveal to get ready to sing to pass.
+          Instruction to 3 second countdown to member order reveal to listen once to ready to sing. Last 3 seconds cue pass.
         </p>
       </Panel>
 

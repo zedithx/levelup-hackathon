@@ -7,6 +7,8 @@ import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FlowShell, Panel, PrimaryButton } from "@/components/drawing-game/flow/ui";
+import { saveSelfieMemoryAsset } from "@/lib/memory-assets";
+import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const VERIFY_DELAY_MS = 1800;
 const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024;
@@ -121,17 +123,29 @@ export function SelfieFlow() {
     }
 
     setVerificationState("verifying");
-    setStatusMessage("Verifying selfie against the mission requirement...");
+    setStatusMessage("Uploading selfie to bucket and verifying checkpoint...");
 
-    await new Promise<void>((resolve) => {
-      verifyTimeoutRef.current = window.setTimeout(() => {
-        verifyTimeoutRef.current = null;
-        resolve();
-      }, VERIFY_DELAY_MS);
-    });
+    try {
+      const uploadResult = await uploadGameAsset({
+        assetType: "selfie",
+        file: selfieFile
+      });
+      saveSelfieMemoryAsset(uploadResult.publicUrl);
 
-    setVerificationState("success");
-    setStatusMessage("Task successful. Your squad selfie has been verified.");
+      await new Promise<void>((resolve) => {
+        verifyTimeoutRef.current = window.setTimeout(() => {
+          verifyTimeoutRef.current = null;
+          resolve();
+        }, VERIFY_DELAY_MS);
+      });
+
+      setVerificationState("success");
+      setStatusMessage("Task successful. Your squad selfie is uploaded and verified.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload selfie.";
+      setVerificationState("error");
+      setStatusMessage(message);
+    }
   };
 
   return (

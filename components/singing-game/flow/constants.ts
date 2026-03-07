@@ -6,8 +6,8 @@ export const PHASE_TICK_MS = 100;
 export const MIN_MEMBERS = 2;
 export const MAX_MEMBERS = 6;
 
-export const READY_PHASE_SEC = 3;
 export const SING_PHASE_SEC = 8;
+export const SINGING_GAME_TRACK_SRC = "/music/bella-ciao.mp3";
 
 export const MEMBER_EMOJI_POOL = ["🦊", "🐯", "🦁", "🐺", "🐉", "🦈", "🎤", "🔥"];
 
@@ -21,8 +21,8 @@ export const DEFAULT_MEMBERS: DrawingGameMember[] = [
 
 export const SINGING_GAME_SONG: DrawingGameSong = {
   id: "city-rush",
-  title: "City Rush",
-  artist: "Pulse Crew",
+  title: "Bella Ciao",
+  artist: "Traditional / Money Heist Version",
   totalDurationSec: 48,
   lyrics: [
     { id: "l1", startSec: 0, endSec: 2, text: "City lights are waking up" },
