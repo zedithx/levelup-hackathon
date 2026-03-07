@@ -32,7 +32,6 @@ type RelayScreen =
   | { kind: "secret-word-draw"; playerIndex: number; endsAt: number }
   | { kind: "relay-look-ready"; playerIndex: number }
   | { kind: "relay-look"; playerIndex: number; endsAt: number }
-  | { kind: "relay-draw-ready"; playerIndex: number }
   | { kind: "relay-draw"; playerIndex: number; endsAt: number }
   | { kind: "relay-pass"; playerIndex: number }
   | { kind: "final-guess-ready" }
@@ -185,7 +184,8 @@ export function DrawingRelayFlow() {
         return;
       }
       case "relay-look": {
-        setScreen({ kind: "relay-draw-ready", playerIndex: screen.playerIndex });
+        canvasRef.current?.clear();
+        setScreen({ kind: "relay-draw", playerIndex: screen.playerIndex, endsAt: Date.now() + DRAW_DURATION_SEC * 1000 });
         return;
       }
       case "relay-draw": {
@@ -212,7 +212,6 @@ export function DrawingRelayFlow() {
         return "DRAW 1";
       case "relay-look-ready":
       case "relay-look":
-      case "relay-draw-ready":
       case "relay-draw":
       case "relay-pass": {
         return `DRAW ${turnNumberFromPlayer(activePlayerCount, screen.playerIndex)}`;
@@ -278,11 +277,6 @@ export function DrawingRelayFlow() {
     setScreen({ kind: "relay-look", playerIndex, endsAt: Date.now() + LOOK_DURATION_SEC * 1000 });
   };
 
-  const beginRelayDraw = (playerIndex: number) => {
-    canvasRef.current?.clear();
-    setScreen({ kind: "relay-draw", playerIndex, endsAt: Date.now() + DRAW_DURATION_SEC * 1000 });
-  };
-
   const beginFinalGuess = () => {
     setGuessInput("");
     setScreen({ kind: "final-guess", endsAt: Date.now() + GUESS_DURATION_SEC * 1000 });
@@ -328,44 +322,55 @@ export function DrawingRelayFlow() {
             <p className="mt-2 text-xs leading-5 text-white/45">
               Top player is at the front and makes the final guess. Bottom player starts drawing first.
             </p>
-            <div className="mt-3 max-h-[clamp(12rem,34vh,18rem)] space-y-2 overflow-y-auto pr-1">
-              {draftPlayers.map((player, index) => (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5" key={player.id}>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#111] text-lg">
-                      {player.emoji}
-                    </span>
-                    <input
-                      className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#111] px-2.5 text-sm text-white placeholder:text-white/40 focus:border-[#ff6b00] focus:outline-none"
-                      maxLength={24}
-                      onChange={(event) => updateDraftPlayerName(player.id, event.target.value)}
-                      placeholder={`Player ${index + 1}`}
-                      value={player.name}
-                    />
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-sm font-bold text-white/70 transition-colors hover:border-[#ff6b00]/40 hover:text-white disabled:text-white/20"
-                        disabled={index === 0}
-                        onClick={() => moveDraftPlayer(index, index - 1)}
-                        type="button"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-sm font-bold text-white/70 transition-colors hover:border-[#ff6b00]/40 hover:text-white disabled:text-white/20"
-                        disabled={index === draftPlayers.length - 1}
-                        onClick={() => moveDraftPlayer(index, index + 1)}
-                        type="button"
-                      >
-                        ↓
-                      </button>
+            <div className="mt-2 flex items-center gap-2 text-[0.68rem] tracking-[0.1em] text-[#00d4ff]">
+              <span className="rounded-full border border-[#00d4ff]/35 bg-[rgba(0,212,255,0.12)] px-2 py-0.5">↕ SCROLL</span>
+              <span>Swipe up/down to see full line order</span>
+            </div>
+            <div className="relative mt-2">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-[#171717] to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-7 bg-gradient-to-t from-[#171717] to-transparent" />
+              <div className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/15 bg-[#101010]/85 px-2.5 py-1 text-[0.62rem] tracking-[0.1em] text-white/60">
+                SCROLL FOR MORE
+              </div>
+              <div className="max-h-[clamp(12rem,34vh,18rem)] space-y-2 overflow-y-auto pb-8 pr-1 pt-1">
+                {draftPlayers.map((player, index) => (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5" key={player.id}>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#111] text-lg">
+                        {player.emoji}
+                      </span>
+                      <input
+                        className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#111] px-2.5 text-sm text-white placeholder:text-white/40 focus:border-[#ff6b00] focus:outline-none"
+                        maxLength={24}
+                        onChange={(event) => updateDraftPlayerName(player.id, event.target.value)}
+                        placeholder={`Player ${index + 1}`}
+                        value={player.name}
+                      />
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-sm font-bold text-white/70 transition-colors hover:border-[#ff6b00]/40 hover:text-white disabled:text-white/20"
+                          disabled={index === 0}
+                          onClick={() => moveDraftPlayer(index, index - 1)}
+                          type="button"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-sm font-bold text-white/70 transition-colors hover:border-[#ff6b00]/40 hover:text-white disabled:text-white/20"
+                          disabled={index === draftPlayers.length - 1}
+                          onClick={() => moveDraftPlayer(index, index + 1)}
+                          type="button"
+                        >
+                          ↓
+                        </button>
+                      </div>
                     </div>
+                    <p className="mt-1.5 text-[0.68rem] tracking-[0.08em] text-white/30">
+                      {index === 0 ? "FRONT OF LINE" : index === draftPlayers.length - 1 ? "BACK OF LINE" : "MIDDLE"}
+                    </p>
                   </div>
-                  <p className="mt-1.5 text-[0.68rem] tracking-[0.08em] text-white/30">
-                    {index === 0 ? "FRONT OF LINE" : index === draftPlayers.length - 1 ? "BACK OF LINE" : "MIDDLE"}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             <p className="mt-2 text-center text-xs text-white/35">
               Secret word placeholder for this mode: <span className="text-white/70">{SECRET_WORD_PLACEHOLDER}</span>
@@ -476,22 +481,6 @@ export function DrawingRelayFlow() {
             imageDataUrl={latestDrawing}
             label="Snapshot from previous player"
           />
-        </div>
-      ) : null}
-
-      {screen.kind === "relay-draw-ready" ? (
-        <div className="anim-screen-in flex h-full flex-1 flex-col">
-          <Panel className="border-[#ff3399]/35 bg-[rgba(255,51,153,0.09)] text-center">
-            <p className="text-xs tracking-[0.16em] text-[#ff3399]">REDRAW FROM MEMORY</p>
-            <h2 className="mt-2 font-display text-[clamp(1.9rem,8.4vw,2.25rem)] leading-none text-white">
-              {playerLabel(screen.playerIndex)}
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-white/65">Fresh canvas. You have 20 seconds to redraw what you remember.</p>
-          </Panel>
-
-          <div className="mt-auto">
-            <PrimaryButton label="Start drawing" onClick={() => beginRelayDraw(screen.playerIndex)} />
-          </div>
         </div>
       ) : null}
 
