@@ -2,6 +2,7 @@ export type DrawingGameScreen =
   | "instructions"
   | "countdown"
   | "order"
+  | "listen"
   | "turn-sing"
   | "summary";
 

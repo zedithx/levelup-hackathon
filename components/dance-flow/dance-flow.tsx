@@ -9,12 +9,8 @@ import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const DANCE_TITLE = "Viral TikTok Team Dance";
 const MAX_RECORDING_SEC = 15;
-const DEMO_STEPS = [
-  "Step right + clap",
-  "Step left + clap",
-  "Spin and point",
-  "Team pose finish"
-];
+const PRE_RECORD_COUNTDOWN_SEC = 3;
+const DANCE_RECORD_AUDIO_SRC = "/audio/dance.mp3";
 
 type DanceScreen = "watch" | "record" | "review" | "submitted";
 
@@ -60,20 +56,21 @@ function extensionFromVideoType(mimeType: string) {
 
 export function DanceFlow() {
   const [screen, setScreen] = useState<DanceScreen>("watch");
-  const [watchCount, setWatchCount] = useState(1);
-  const [activeDemoStep, setActiveDemoStep] = useState(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isPreparingCamera, setIsPreparingCamera] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [countdownSec, setCountdownSec] = useState<number | null>(null);
   const [recordingSec, setRecordingSec] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [recordingFile, setRecordingFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const danceAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const countdownIntervalRef = useRef<number | null>(null);
   const recordingIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
   const shouldOpenReviewAfterStopRef = useRef(false);
@@ -101,6 +98,41 @@ export function DanceFlow() {
     }
   }, []);
 
+  const clearCountdownTimer = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
+    setCountdownSec(null);
+  }, []);
+
+  const stopDanceAudio = useCallback(() => {
+    const audioElement = danceAudioRef.current;
+
+    if (!audioElement) {
+      return;
+    }
+
+    audioElement.pause();
+    audioElement.currentTime = 0;
+  }, []);
+
+  const playDanceAudio = useCallback(async () => {
+    const audioElement = danceAudioRef.current;
+
+    if (!audioElement) {
+      return;
+    }
+
+    try {
+      audioElement.currentTime = 0;
+      await audioElement.play();
+    } catch {
+      // Browser autoplay policies may block delayed playback after countdown.
+    }
+  }, []);
+
   const clearRecordingUrl = useCallback(() => {
     setRecordingUrl((currentUrl) => {
       if (currentUrl) {
@@ -114,14 +146,16 @@ export function DanceFlow() {
 
   const stopRecording = useCallback(() => {
     clearRecordingTimers();
+    clearCountdownTimer();
     setIsRecording(false);
+    stopDanceAudio();
 
     const recorder = recorderRef.current;
 
     if (recorder && recorder.state === "recording") {
       recorder.stop();
     }
-  }, [clearRecordingTimers]);
+  }, [clearCountdownTimer, clearRecordingTimers, stopDanceAudio]);
 
   const openCameraStream = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -150,8 +184,8 @@ export function DanceFlow() {
     }
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (isRecording) {
+  const beginRecordingNow = useCallback(async () => {
+    if (screen !== "record" || isRecording) {
       return;
     }
 
@@ -161,10 +195,8 @@ export function DanceFlow() {
     }
 
     if (!streamRef.current) {
-      const canOpen = await openCameraStream();
-      if (!canOpen || !streamRef.current) {
-        return;
-      }
+      setCameraError("Camera stream unavailable. Please try again.");
+      return;
     }
 
     clearRecordingUrl();
@@ -220,11 +252,13 @@ export function DanceFlow() {
     recorder.onerror = () => {
       setCameraError("Recording failed. Please try again.");
       setIsRecording(false);
+      stopDanceAudio();
       clearRecordingTimers();
     };
 
     recorder.start(250);
     setIsRecording(true);
+    void playDanceAudio();
 
     const startAt = Date.now();
     recordingIntervalRef.current = window.setInterval(() => {
@@ -235,7 +269,50 @@ export function DanceFlow() {
     stopTimeoutRef.current = window.setTimeout(() => {
       stopRecording();
     }, MAX_RECORDING_SEC * 1000);
-  }, [clearRecordingTimers, clearRecordingUrl, isRecording, openCameraStream, stopRecording, stopStream]);
+  }, [
+    clearRecordingTimers,
+    clearRecordingUrl,
+    isRecording,
+    playDanceAudio,
+    screen,
+    stopDanceAudio,
+    stopRecording,
+    stopStream
+  ]);
+
+  const startRecording = useCallback(async () => {
+    if (isRecording || countdownSec !== null) {
+      return;
+    }
+
+    if (typeof MediaRecorder === "undefined") {
+      setCameraError("Video recording is not supported in this browser.");
+      return;
+    }
+
+    if (!streamRef.current) {
+      const canOpen = await openCameraStream();
+      if (!canOpen || !streamRef.current) {
+        return;
+      }
+    }
+
+    setCameraError(null);
+    setCountdownSec(PRE_RECORD_COUNTDOWN_SEC);
+
+    let nextSec = PRE_RECORD_COUNTDOWN_SEC;
+    countdownIntervalRef.current = window.setInterval(() => {
+      nextSec -= 1;
+
+      if (nextSec <= 0) {
+        clearCountdownTimer();
+        void beginRecordingNow();
+        return;
+      }
+
+      setCountdownSec(nextSec);
+    }, 1000);
+  }, [beginRecordingNow, clearCountdownTimer, countdownSec, isRecording, openCameraStream]);
 
   const handleFileUploadFallback = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -298,26 +375,13 @@ export function DanceFlow() {
     setRecordingSec(0);
     setIsSubmitting(false);
     setCameraError(null);
-    setWatchCount(1);
     setScreen("watch");
   }, [clearRecordingUrl]);
 
   useEffect(() => {
-    if (screen !== "watch") {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActiveDemoStep((current) => (current + 1) % DEMO_STEPS.length);
-    }, 1100);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [screen]);
-
-  useEffect(() => {
     if (screen !== "record") {
+      clearCountdownTimer();
+      stopDanceAudio();
       if (recorderRef.current?.state === "recording") {
         shouldOpenReviewAfterStopRef.current = false;
         recorderRef.current.stop();
@@ -343,20 +407,24 @@ export function DanceFlow() {
 
     return () => {
       cancelled = true;
+      clearCountdownTimer();
+      stopDanceAudio();
       stopStream();
     };
-  }, [clearRecordingTimers, openCameraStream, screen, stopStream]);
+  }, [clearCountdownTimer, clearRecordingTimers, openCameraStream, screen, stopDanceAudio, stopStream]);
 
   useEffect(() => {
     return () => {
+      clearCountdownTimer();
       clearRecordingTimers();
+      stopDanceAudio();
       stopStream();
 
       if (recordingUrl) {
         URL.revokeObjectURL(recordingUrl);
       }
     };
-  }, [clearRecordingTimers, recordingUrl, stopStream]);
+  }, [clearCountdownTimer, clearRecordingTimers, recordingUrl, stopDanceAudio, stopStream]);
 
   const recordProgress = useMemo(() => {
     if (!isRecording) {
@@ -366,8 +434,10 @@ export function DanceFlow() {
     return Math.min(recordingSec / MAX_RECORDING_SEC, 1);
   }, [isRecording, recordingSec]);
 
+  const isCountdownActive = countdownSec !== null;
+
   return (
-    <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,51,153,0.16),transparent_42%),#050505] md:px-6 md:py-8">
+    <div className="anim-ambient-bg min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,51,153,0.16),transparent_42%),#050505] md:px-6 md:py-8">
       <main className="mx-auto min-h-[100dvh] w-full max-w-[393px] overflow-hidden border border-white/10 bg-[#0a0a0a] text-white md:min-h-[852px] md:rounded-[24px]">
         <header className="flex h-14 items-center justify-between px-5">
           <p className="font-display text-[clamp(1rem,4.4vw,1.12rem)] leading-7 tracking-[0.045em]">
@@ -382,7 +452,7 @@ export function DanceFlow() {
         <div className="h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <section className="flex min-h-[calc(100dvh-57px)] flex-col px-5 pb-5 pt-4 md:min-h-[795px]">
           {screen === "watch" ? (
-            <div className="anim-screen-in flex h-full flex-1 flex-col">
+            <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
               <div className="text-center">
                 <p className="text-xs tracking-[0.2em] text-[#ff3399]">TEAM CHALLENGE</p>
                 <h1 className="mt-3 font-display text-[clamp(2rem,9vw,2.6rem)] leading-none text-white">{DANCE_TITLE}</h1>
@@ -392,36 +462,14 @@ export function DanceFlow() {
               </div>
 
               <Panel className="mt-5 border-[#ff3399]/35 bg-[rgba(255,51,153,0.09)]">
-                <p className="text-xs tracking-[0.12em] text-[#ff3399]">PLACEHOLDER DANCE PREVIEW</p>
-                <div className="mt-3 rounded-2xl border border-white/15 bg-[#121212] p-4">
-                  <div className="flex items-center justify-between text-[0.72rem] tracking-[0.1em] text-white/45">
-                    <span>NOW PLAYING</span>
-                    <span>LOOPING DEMO</span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {DEMO_STEPS.map((step, index) => (
-                      <div
-                        className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
-                          activeDemoStep === index
-                            ? "border-[#ff3399]/55 bg-[#ff3399]/25 text-white"
-                            : "border-white/10 bg-white/5 text-white/60"
-                        }`}
-                        key={step}
-                      >
-                        {index + 1}. {step}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-xs text-white/45">Replay count: {watchCount}</p>
-                  <GhostButton
-                    className="h-9"
-                    label="Watch again"
-                    onClick={() => {
-                      setWatchCount((current) => current + 1);
-                      setActiveDemoStep((current) => (current + 1) % DEMO_STEPS.length);
-                    }}
+                <p className="text-xs tracking-[0.12em] text-[#ff3399]">GUIDING DANCE (BATIDAO)</p>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-white/15 bg-[#121212]">
+                  <video
+                    className="aspect-[9/16] w-full bg-black object-cover"
+                    controls
+                    playsInline
+                    preload="metadata"
+                    src="/video/dance.mp4"
                   />
                 </div>
               </Panel>
@@ -442,11 +490,13 @@ export function DanceFlow() {
           ) : null}
 
           {screen === "record" ? (
-            <div className="anim-screen-in flex h-full flex-1 flex-col">
+            <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
+              <audio preload="auto" ref={danceAudioRef} src={DANCE_RECORD_AUDIO_SRC} />
               <Panel className="border-[#00d4ff]/35 bg-[rgba(0,212,255,0.09)]">
                 <p className="text-xs tracking-[0.14em] text-[#00d4ff]">TEAM RECORDING</p>
                 <p className="mt-2 text-sm leading-6 text-white/70">
-                  Press start when your full team is in frame. Stop anytime, or auto-stop after {MAX_RECORDING_SEC} seconds.
+                  Press start when your full team is in frame. Recording begins after a 3-second countdown, then auto-stops after{" "}
+                  {MAX_RECORDING_SEC} seconds.
                 </p>
               </Panel>
 
@@ -462,20 +512,38 @@ export function DanceFlow() {
 
               <Panel className="mt-4">
                 <div className="flex items-center justify-between text-xs tracking-[0.1em] text-white/45">
-                  <span>{isRecording ? "RECORDING" : "READY"}</span>
-                  <span>{isRecording ? `${formatTime(recordingSec)} / ${formatTime(MAX_RECORDING_SEC)}` : `MAX ${MAX_RECORDING_SEC}s`}</span>
+                  <span>{isRecording ? "RECORDING" : isCountdownActive ? "COUNTDOWN" : "READY"}</span>
+                  <span>
+                    {isRecording
+                      ? `${formatTime(recordingSec)} / ${formatTime(MAX_RECORDING_SEC)}`
+                      : isCountdownActive
+                        ? `Starts in ${countdownSec}s`
+                        : `MAX ${MAX_RECORDING_SEC}s`}
+                  </span>
                 </div>
                 <div className="mt-2">
                   <ProgressBar accent="#ff3399" progress={recordProgress} />
                 </div>
               </Panel>
 
+              {isCountdownActive ? (
+                <p className="mt-3 text-center font-display text-4xl leading-none text-[#ffd700]">{countdownSec}</p>
+              ) : null}
+
               {cameraError ? <p className="mt-3 text-sm text-[#ff9bb9]">{cameraError}</p> : null}
 
               <div className="mt-auto space-y-3">
                 <PrimaryButton
-                  disabled={isPreparingCamera}
-                  label={isRecording ? "Stop recording" : isPreparingCamera ? "Opening camera..." : "Start recording"}
+                  disabled={isPreparingCamera || isCountdownActive}
+                  label={
+                    isRecording
+                      ? "Stop recording"
+                      : isCountdownActive
+                        ? `Starting in ${countdownSec}...`
+                        : isPreparingCamera
+                          ? "Opening camera..."
+                          : "Start recording"
+                  }
                   onClick={isRecording ? stopRecording : () => void startRecording()}
                 />
                 <label className="block cursor-pointer rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-center text-xs text-white/65 hover:border-white/25">
@@ -488,7 +556,7 @@ export function DanceFlow() {
           ) : null}
 
           {screen === "review" ? (
-            <div className="anim-screen-in flex h-full flex-1 flex-col">
+            <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
               <Panel className="border-[#ffd700]/35 bg-[rgba(255,215,0,0.09)]">
                 <p className="text-xs tracking-[0.14em] text-[#ffd700]">REVIEW PLAYBACK</p>
                 <p className="mt-2 text-sm leading-6 text-white/70">
@@ -518,7 +586,7 @@ export function DanceFlow() {
           ) : null}
 
           {screen === "submitted" ? (
-            <div className="anim-screen-in flex h-full flex-1 flex-col">
+            <div className="anim-screen-in anim-stagger flex h-full flex-1 flex-col">
               <Panel className="border-[#00d4ff]/35 bg-[rgba(0,212,255,0.09)] text-center">
                 <p className="text-xs tracking-[0.14em] text-[#00d4ff]">UPLOAD COMPLETE</p>
                 <h2 className="mt-3 font-display text-[clamp(1.9rem,8.8vw,2.4rem)] leading-none text-white">

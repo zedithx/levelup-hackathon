@@ -13,7 +13,7 @@ export function OrderScreen({ turns, onStartNow }: OrderScreenProps) {
         <p className="text-xs tracking-[0.08em] text-[#00d4ff]">PASS ORDER</p>
         <h1 className="mt-2 font-display text-[clamp(2rem,8.8vw,2.4rem)] leading-none">WHO SINGS WHEN</h1>
         <p className="mt-2 text-sm leading-6 text-white/55">
-          The phone follows this order. Turns are continuous at 8 seconds each.
+          The phone follows this order. Team listens once first, then turns are continuous at 8 seconds each.
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export function OrderScreen({ turns, onStartNow }: OrderScreenProps) {
       </Panel>
 
       <div className="anim-fade-up mt-4">
-        <PrimaryButton label="Start First Singer" onClick={onStartNow} />
+        <PrimaryButton label="Start Listening" onClick={onStartNow} />
       </div>
     </FlowShell>
   );

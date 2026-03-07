@@ -108,7 +108,7 @@ export function InstructionsScreen({
       <Panel className="anim-fade-up mt-4 border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.08)]">
         <p className="text-xs text-white/45">FLOW ORDER</p>
         <p className="mt-1 text-sm leading-6 text-white/70">
-          Instruction to 3 second countdown to member order reveal to continuous singing. Last 3 seconds cue pass.
+          Instruction to 3 second countdown to member order reveal to listen once to ready to sing. Last 3 seconds cue pass.
         </p>
       </Panel>
 

@@ -29,7 +29,7 @@ export function SummaryScreen({
       <div className="anim-fade-up">
         <p className="text-xs tracking-[0.08em] text-[#ffd700]">ROUND COMPLETE</p>
         <h1 className="mt-2 font-display text-[clamp(2rem,8.8vw,2.5rem)] leading-none">TEAM FINISHED</h1>
-        <p className="mt-2 text-sm leading-6 text-white/60">Good handoff flow. Every member got their get-ready and full sing section.</p>
+        <p className="mt-2 text-sm leading-6 text-white/60">Good handoff flow. Team listened once first, then completed all singing turns.</p>
       </div>
 
       <Panel className="anim-fade-up mt-4 border-[rgba(255,215,0,0.3)] bg-[rgba(255,215,0,0.08)]">

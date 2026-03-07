@@ -117,6 +117,17 @@ body {
   }
 }
 
+@keyframes flow-ambient-pan {
+  0%,
+  100% {
+    background-position: 50% 0%;
+  }
+
+  50% {
+    background-position: 50% 14%;
+  }
+}
+
 @layer utilities {
   .anim-screen-in {
     animation: flow-screen-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -126,6 +137,7 @@ body {
   .anim-fade-up {
     opacity: 0;
     animation: flow-fade-up 520ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+    animation-delay: var(--anim-delay, 0ms);
     will-change: transform, opacity;
   }
 
@@ -139,6 +151,7 @@ body {
 
   .anim-pop-in {
     animation: flow-pop-in 300ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+    animation-delay: var(--anim-delay, 0ms);
     will-change: transform, opacity;
   }
 
@@ -155,6 +168,108 @@ body {
   .anim-soft-spin {
     animation: flow-spin 1.4s linear infinite;
   }
+
+  .anim-ambient-bg {
+    background-size: 100% 140%;
+    animation: flow-ambient-pan 16s ease-in-out infinite;
+  }
+
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)) {
+    opacity: 0;
+    animation: flow-fade-up 500ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+    animation-delay: var(--anim-delay, 60ms);
+    will-change: transform, opacity;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(1),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(1) {
+    --anim-delay: 60ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(2),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(2) {
+    --anim-delay: 120ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(3),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(3) {
+    --anim-delay: 180ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(4),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(4) {
+    --anim-delay: 240ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(5),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(5) {
+    --anim-delay: 300ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(6),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(6) {
+    --anim-delay: 360ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(7),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(7) {
+    --anim-delay: 420ms;
+  }
+
+  .anim-stagger > :where(.anim-fade-up, .anim-pop-in):nth-child(8),
+  .anim-stagger > :where(*:not(.anim-screen-in):not(.anim-fade-up):not(.anim-pop-in)):nth-child(8) {
+    --anim-delay: 480ms;
+  }
+
+  .anim-elevate {
+    transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.2, 0.75, 0.2, 1);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .anim-elevate:not(:disabled):hover {
+      transform: translate3d(0, -1px, 0);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+  }
+
+  .anim-elevate:not(:disabled):active {
+    transform: translate3d(0, 0, 0) scale(0.99);
+  }
+
+  .anim-surface {
+    transition: transform 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+      border-color 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+      box-shadow 320ms cubic-bezier(0.2, 0.75, 0.2, 1);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .anim-surface:hover {
+      transform: translate3d(0, -2px, 0);
+      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
+    }
+  }
+
+  .anim-screen-in :where(button:not(.anim-soft-spin), [role="button"]),
+  .anim-stagger :where(button:not(.anim-soft-spin), [role="button"]) {
+    transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.2, 0.75, 0.2, 1);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .anim-screen-in :where(button:not(:disabled):not(.anim-soft-spin), [role="button"]):hover,
+    .anim-stagger :where(button:not(:disabled):not(.anim-soft-spin), [role="button"]):hover {
+      transform: translate3d(0, -1px, 0);
+    }
+  }
+
+  .anim-screen-in :where(button:not(:disabled):not(.anim-soft-spin), [role="button"]):active,
+  .anim-stagger :where(button:not(:disabled):not(.anim-soft-spin), [role="button"]):active {
+    transform: translate3d(0, 0, 0) scale(0.99);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -165,9 +280,17 @@ body {
   .anim-pop-in,
   .anim-carousel-reveal,
   .anim-audio-wave,
-  .anim-soft-spin {
+  .anim-soft-spin,
+  .anim-ambient-bg,
+  .anim-stagger > * {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .anim-elevate,
+  .anim-surface {
+    transition: none !important;
+    box-shadow: none !important;
   }
 }

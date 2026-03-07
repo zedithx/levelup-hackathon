@@ -7,10 +7,12 @@ import {
   ORDER_REVEAL_MS,
   PHASE_TICK_MS,
   PRE_GAME_COUNTDOWN_SEC,
-  SINGING_GAME_SONG
+  SINGING_GAME_SONG,
+  SINGING_GAME_TRACK_SRC
 } from "@/components/singing-game/flow/constants";
 import { CountdownScreen } from "@/components/singing-game/flow/screens/countdown-screen";
 import { InstructionsScreen } from "@/components/singing-game/flow/screens/instructions-screen";
+import { ListenScreen } from "@/components/singing-game/flow/screens/listen-screen";
 import { OrderScreen } from "@/components/singing-game/flow/screens/order-screen";
 import { SummaryScreen } from "@/components/singing-game/flow/screens/summary-screen";
 import { TurnScreen } from "@/components/singing-game/flow/screens/turn-screen";
@@ -60,6 +62,7 @@ export function SingingGameFlow() {
   const [hasAttemptedAudioUpload, setHasAttemptedAudioUpload] = useState(false);
   const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [hasCompletedGuideListen, setHasCompletedGuideListen] = useState(false);
 
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -185,6 +188,7 @@ export function SingingGameFlow() {
     setCountdownSec(PRE_GAME_COUNTDOWN_SEC);
     setCurrentTurnIndex(0);
     setPhaseRemainingMs(0);
+    setHasCompletedGuideListen(false);
   }, []);
 
   const resetAudioUploadState = useCallback(() => {
@@ -200,9 +204,8 @@ export function SingingGameFlow() {
     stopRoundAudioCapture();
     resetRuntimeState();
     resetAudioUploadState();
-    void startRoundAudioCapture();
     setScreen("countdown");
-  }, [resetAudioUploadState, resetRuntimeState, startRoundAudioCapture, stopRoundAudioCapture]);
+  }, [resetAudioUploadState, resetRuntimeState, stopRoundAudioCapture]);
 
   const goToSetup = useCallback(() => {
     stopRoundAudioCapture();
@@ -227,6 +230,15 @@ export function SingingGameFlow() {
     },
     [stopRoundAudioCapture, turns]
   );
+
+  const beginSingingRound = useCallback(async () => {
+    if (!hasCompletedGuideListen) {
+      return;
+    }
+
+    await startRoundAudioCapture();
+    startTurnSing(0);
+  }, [hasCompletedGuideListen, startRoundAudioCapture, startTurnSing]);
 
   const uploadRoundAudio = useCallback(async () => {
     if (!roundAudioFile) {
@@ -339,13 +351,13 @@ export function SingingGameFlow() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      startTurnSing(0);
+      setScreen("listen");
     }, ORDER_REVEAL_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [screen, startTurnSing]);
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== "turn-sing") {
@@ -418,7 +430,22 @@ export function SingingGameFlow() {
   }
 
   if (screen === "order") {
-    return <OrderScreen onStartNow={() => startTurnSing(0)} turns={turns} />;
+    return <OrderScreen onStartNow={() => setScreen("listen")} turns={turns} />;
+  }
+
+  if (screen === "listen") {
+    return (
+      <ListenScreen
+        hasCompletedListen={hasCompletedGuideListen}
+        onReadyToSing={() => {
+          void beginSingingRound();
+        }}
+        onTrackEnded={() => setHasCompletedGuideListen(true)}
+        trackArtist={SINGING_GAME_SONG.artist}
+        trackSrc={SINGING_GAME_TRACK_SRC}
+        trackTitle={SINGING_GAME_SONG.title}
+      />
+    );
   }
 
   if (screen === "turn-sing" && activeTurn) {
