@@ -10,7 +10,6 @@ import {
   RACE_FLOW_CONFIG
 } from "@/components/scape-pulse/flow/constants";
 import { useEndingCarouselMedia } from "@/components/scape-pulse/flow/hooks/use-ending-carousel-media";
-import { CameraPermissionScreen } from "@/components/scape-pulse/flow/screens/camera-permission-screen";
 import { CheckpointClearedScreen } from "@/components/scape-pulse/flow/screens/checkpoint-cleared-screen";
 import { ClassCodeScreen } from "@/components/scape-pulse/flow/screens/class-code-screen";
 import { FinalDestinationCarouselScreen } from "@/components/scape-pulse/flow/screens/final-destination-carousel-screen";
@@ -25,7 +24,6 @@ import type { FlowScreen, TeamMember } from "@/components/scape-pulse/flow/types
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let THREE = null as any as Awaited<typeof import("three")>;
 let OrbitControls = null as any as new (...a: any[]) => any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 let _threeLoad: Promise<void> | null = null;
 function ensureThreeLocal(): Promise<void> {
@@ -237,7 +235,7 @@ async function renderAvatarPreview(cfg: AvatarConfig): Promise<string> {
   s.add(buildAnimalAvatarLocal(cfg));
   r.render(s, cam);
   const url = offCanvas.toDataURL("image/png");
-  s.traverse(child => { const m = child as any; if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); } });
+  s.traverse((child: unknown) => { const m = child as any; if (m.isMesh) { m.geometry.dispose(); (m.material as any).dispose(); } });
   r.dispose();
   return url;
 }
@@ -531,12 +529,8 @@ export function ScapePulseFlow() {
   const [expandedAddTeammate, setExpandedAddTeammate] = useState(false);
   const [newTeammateAvatar, setNewTeammateAvatar] = useState("🐙");
   const [newTeammateName, setNewTeammateName] = useState("Tania");
-  const [checkpointImagePlaceholder, setCheckpointImagePlaceholder] = useState(
-    RACE_FLOW_CONFIG.checkpoint.imagePlaceholderSrc
-  );
-  const [checkpointTargetMindSrc, setCheckpointTargetMindSrc] = useState(
-    RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc
-  );
+  const checkpointImagePlaceholder = RACE_FLOW_CONFIG.checkpoint.imagePlaceholderSrc;
+  const checkpointTargetMindSrc = RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc;
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
   const [checkpointCleared, setCheckpointCleared] = useState(false);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);

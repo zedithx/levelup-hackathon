@@ -43,7 +43,7 @@ export function RaceCameraScreen({
         <div className="anim-fade-up relative h-[56dvh] min-h-[360px] max-h-[640px]" style={reveal(80)}>
           <MindARImageScene
             onTargetFound={(targetIndex) => {
-              if (isCameraReady && dialogueComplete) {
+              if (isCameraReady) {
                 onCheckpointMatched(targetIndex);
               }
             }}
@@ -52,18 +52,6 @@ export function RaceCameraScreen({
             targetMindFileSrc={checkpointTargetMindSrc}
             targetIndexes={[0, 1, 2, 3]}
           />
-
-          {isCameraReady && !dialogueComplete && activeDialogue ? (
-            <div className="pointer-events-none absolute inset-x-3 bottom-3">
-              <div className="pointer-events-auto rounded-[16px] border border-[#ff3399]/40 bg-[rgba(10,10,10,0.92)] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
-                <p className="text-[0.72rem] tracking-[0.2em] text-[#ff3399]">{activeDialogue.speaker.toUpperCase()}</p>
-                <p className="mt-2 text-sm leading-6 text-white/80">{activeDialogue.message}</p>
-                <div className="mt-4">
-                  <PrimaryButton fullWidth={false} label={activeDialogue.ctaLabel} onClick={onAdvanceDialogue} />
-                </div>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="anim-fade-up mt-3 rounded-[14px] border border-white/10 bg-[#111] p-3" style={reveal(120)}>

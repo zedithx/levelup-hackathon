@@ -603,7 +603,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
                 onClick={() => { stopAR(); onSkip(); }}
                 type="button"
               >
-                I've arrived at Checkpoint 1 →
+                I&apos;ve arrived at Checkpoint 1 →
               </button>
               <button
                 className="h-10 w-full max-w-[280px] rounded-2xl bg-black/50 text-sm font-bold text-white/60 backdrop-blur-sm"
@@ -642,7 +642,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
                 onClick={onSkip}
                 type="button"
               >
-                I've arrived at Checkpoint 1 →
+                I&apos;ve arrived at Checkpoint 1 →
               </button>
               <button
                 className="h-10 w-full max-w-[280px] text-sm font-bold text-white/30"
@@ -679,7 +679,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
                 onClick={onSkip}
                 type="button"
               >
-                I've arrived at Checkpoint 1 →
+                I&apos;ve arrived at Checkpoint 1 →
               </button>
               <button
                 className="h-10 w-full max-w-[320px] text-sm font-bold text-white/30"
