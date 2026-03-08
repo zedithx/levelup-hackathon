@@ -30,6 +30,7 @@ type Props = {
   onExit: () => void;
   onSkip: () => void;
   showConfetti?: boolean;
+  autoStart?: boolean;
   checkpoint?: { name: string; hint: string };
   dialogueLines?: string[];
 };
@@ -197,7 +198,7 @@ const FLOOR_ARROW_YAW = 0;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, checkpoint, dialogueLines }: Props) {
+export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, autoStart = false, checkpoint, dialogueLines }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sessionRef = useRef<any>(null);
@@ -602,8 +603,8 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
 
   // When returning after a checkpoint, skip the pre-session screen and launch AR immediately
   useEffect(() => {
-    if (showConfetti && status === "idle") startAR();
-  }, [showConfetti, status, startAR]);
+    if (autoStart && status === "idle") startAR();
+  }, [autoStart, status, startAR]);
 
   // Show confetti for 3 s once AR becomes active after a checkpoint
   useEffect(() => {
@@ -816,13 +817,17 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
                   {errorMsg}
                 </p>
               )}
-              <button
-                className="mb-3 h-[clamp(3rem,8vh,3.5rem)] w-full max-w-[320px] rounded-2xl bg-[#ff6b00] font-display text-lg tracking-wider text-white"
-                onClick={startAR}
-                type="button"
-              >
-                START AR GUIDE
-              </button>
+              {!autoStart ? (
+                <button
+                  className="mb-3 h-[clamp(3rem,8vh,3.5rem)] w-full max-w-[320px] rounded-2xl bg-[#ff6b00] font-display text-lg tracking-wider text-white"
+                  onClick={startAR}
+                  type="button"
+                >
+                  START AR GUIDE
+                </button>
+              ) : (
+                <p className="mb-3 text-sm text-white/50">Starting AR guide...</p>
+              )}
               <button
                 className="mb-2 h-11 w-full max-w-[320px] rounded-2xl border border-white/10 bg-white/5 text-sm font-bold text-white/70"
                 onClick={onSkip}
@@ -848,6 +853,11 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
     </div>
   );
 }
+
+
+
+
+
 
 
 

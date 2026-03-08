@@ -876,9 +876,9 @@ export function ScapePulseFlow() {
             showConfetti={false}
             checkpoint={{
               name: effectiveRaceConfig.checkpoint.name,
-              hint: carPhase.intro,
+              hint: carPhase.intro[0],
             }}
-            dialogueLines={[carPhase.intro]}
+            dialogueLines={carPhase.intro}
             onSkip={() => setScreen("ar-race")}
             onExit={() => setScreen("ar-race")}
           />
@@ -901,8 +901,8 @@ export function ScapePulseFlow() {
           <CheckpointClearedScreen
             checkpointName={checkpointTransition?.checkpointName ?? effectiveRaceConfig.checkpoint.name}
             mascotName={effectiveRaceConfig.mascotName}
-            foundMessage={checkpointTransition?.foundMessage ?? carPhase.found}
-            challengeMessage={checkpointTransition?.challengeMessage ?? carPhase.challenge}
+            foundMessage={checkpointTransition?.foundMessage ?? carPhase.found.join(" ")}
+            challengeMessage={checkpointTransition?.challengeMessage ?? carPhase.challenge.join(" ")}
             ctaLabel={checkpointTransition?.ctaLabel ?? "Continue"}
             onContinue={() => {
               setScreen(checkpointTransition?.nextScreen ?? "selfie");
@@ -922,12 +922,13 @@ export function ScapePulseFlow() {
         {screen === "ar-guide-to-dance" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}
-            showConfetti={false}
+            showConfetti={true}
+            autoStart
             checkpoint={{
               name: "Mission 2: The Studio Butterfly",
-              hint: butterflyPhase.intro,
+              hint: butterflyPhase.intro[0],
             }}
-            dialogueLines={[carPhase.success, butterflyPhase.intro]}
+            dialogueLines={[...carPhase.success, ...butterflyPhase.intro]}
             onSkip={() => setScreen("ar-race-dance")}
             onExit={() => setScreen("ar-race-dance")}
           />
@@ -963,12 +964,13 @@ export function ScapePulseFlow() {
         {screen === "ar-guide-to-drawing" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}
-            showConfetti={false}
+            showConfetti={true}
+            autoStart
             checkpoint={{
               name: "Mission 4: The Monster Pile",
-              hint: buttPhase.intro,
+              hint: buttPhase.intro[0],
             }}
-            dialogueLines={[butterflyPhase.success, buttPhase.intro]}
+            dialogueLines={[...butterflyPhase.success, ...buttPhase.intro]}
             onSkip={() => setScreen("ar-race-drawing")}
             onExit={() => setScreen("ar-race-drawing")}
           />
@@ -1001,12 +1003,13 @@ export function ScapePulseFlow() {
         {screen === "ar-guide-to-singing" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}
-            showConfetti={false}
+            showConfetti={true}
+            autoStart
             checkpoint={{
               name: "Mission 3: The Piano Balcony",
-              hint: balconyPhase.intro,
+              hint: balconyPhase.intro[0],
             }}
-            dialogueLines={[buttPhase.success, balconyPhase.intro]}
+            dialogueLines={[...buttPhase.success, ...balconyPhase.intro]}
             onSkip={() => setScreen("singing")}
             onExit={() => setScreen("singing")}
           />
@@ -1022,12 +1025,13 @@ export function ScapePulseFlow() {
           <ArGuideScreen
             config={avatarConfig}
             showConfetti={true}
+            autoStart
             checkpoint={{
               name: "Grand Finale: The Gallery",
               hint: "Head to the gallery — your squad's memories are waiting for you!",
             }}
             dialogueLines={[
-              balconyPhase.success,
+              ...balconyPhase.success,
               "Head to the gallery now — your squad's epic journey is immortalised there. Let's celebrate!",
             ]}
             onSkip={() => { clearSession(); setScreenState("final-destination-carousel"); }}
@@ -1042,6 +1046,11 @@ export function ScapePulseFlow() {
     </div>
   );
 }
+
+
+
+
+
 
 
 
