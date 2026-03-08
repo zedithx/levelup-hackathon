@@ -5,6 +5,10 @@ type UploadResponse = {
   publicUrl: string;
 };
 
+type SignedUploadResponse = UploadResponse & {
+  signedUrl: string;
+};
+
 type UploadOptions = {
   assetType: UploadAssetType;
   file: File;
@@ -32,17 +36,18 @@ function uploadErrorMessage(fallback: string, payload: unknown) {
 }
 
 export async function uploadGameAsset({ assetType, file, playerName }: UploadOptions): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append("assetType", assetType);
-  formData.append("file", file);
-
-  if (playerName?.trim()) {
-    formData.append("playerName", playerName.trim());
-  }
-
   const response = await fetch("/api/storage/upload", {
     method: "POST",
-    body: formData
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      assetType,
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+      playerName: playerName?.trim() || undefined
+    })
   });
 
   const payload = (await response.json().catch(() => null)) as unknown;
@@ -55,10 +60,27 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
     throw new Error("Upload failed: invalid server response.");
   }
 
-  const result = payload as Partial<UploadResponse>;
+  const result = payload as Partial<SignedUploadResponse>;
 
-  if (!result.publicUrl || !result.objectPath) {
-    throw new Error("Upload failed: missing URL from server.");
+  if (!result.publicUrl || !result.objectPath || !result.signedUrl) {
+    throw new Error("Upload failed: missing signed upload data from server.");
+  }
+
+  const directUploadBody = new FormData();
+  directUploadBody.append("cacheControl", "31536000");
+  directUploadBody.append("", file);
+
+  const directUploadResponse = await fetch(result.signedUrl, {
+    method: "PUT",
+    headers: {
+      "x-upsert": "true"
+    },
+    body: directUploadBody
+  });
+
+  if (!directUploadResponse.ok) {
+    const upstreamText = await directUploadResponse.text().catch(() => "");
+    throw new Error(upstreamText ? `Upload failed. ${upstreamText.slice(0, 300)}` : "Upload failed.");
   }
 
   return {

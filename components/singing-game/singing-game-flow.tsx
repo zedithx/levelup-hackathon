@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -49,6 +50,7 @@ function extensionFromAudioType(mimeType: string) {
 }
 
 export function SingingGameFlow() {
+  const router = useRouter();
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
   const [members, setMembers] = useState<DrawingGameMember[]>(DEFAULT_MEMBERS);
   const [countdownSec, setCountdownSec] = useState(PRE_GAME_COUNTDOWN_SEC);
@@ -260,7 +262,8 @@ export function SingingGameFlow() {
       saveFinalSongMemoryAsset({
         audioSrc: uploadResult.publicUrl,
         songTitle: SINGING_GAME_SONG.title,
-        voiceContributors
+        voiceContributors,
+        backgroundTrackSrc: SINGING_GAME_TRACK_SRC
       });
 
       setIsAudioUploaded(true);
@@ -467,7 +470,7 @@ export function SingingGameFlow() {
       isAudioUploaded={isAudioUploaded}
       isAudioUploading={isAudioUploading}
       onBackToSetup={goToSetup}
-      onReplay={startRound}
+      onContinueToAr={() => router.push("/ar-experience")}
       onRetryAudioUpload={() => {
         setHasAttemptedAudioUpload(true);
         void uploadRoundAudio();

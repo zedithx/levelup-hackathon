@@ -9,7 +9,7 @@ type SummaryScreenProps = {
   audioUploadError: string | null;
   recordingError: string | null;
   onRetryAudioUpload: () => void;
-  onReplay: () => void;
+  onContinueToAr: () => void;
   onBackToSetup: () => void;
 };
 
@@ -21,7 +21,7 @@ export function SummaryScreen({
   audioUploadError,
   recordingError,
   onRetryAudioUpload,
-  onReplay,
+  onContinueToAr,
   onBackToSetup
 }: SummaryScreenProps) {
   return (
@@ -66,7 +66,7 @@ export function SummaryScreen({
 
         {audioUploadError && audioPreviewUrl ? (
           <button
-            className="mt-3 h-9 rounded-lg border border-white/15 px-3 text-xs text-white/80 transition-colors hover:border-white/30 hover:text-white"
+            className="anim-elevate btn-fit mt-3 h-9 rounded-lg border border-white/15 text-xs text-white/80 transition-colors hover:border-white/30 hover:text-white"
             onClick={onRetryAudioUpload}
             type="button"
           >
@@ -76,9 +76,9 @@ export function SummaryScreen({
       </Panel>
 
       <div className="anim-fade-up mt-4 space-y-2">
-        <PrimaryButton label="Play Again" onClick={onReplay} />
+        <PrimaryButton label="Continue to AR" onClick={onContinueToAr} />
         <button
-          className="h-10 w-full text-sm font-bold text-white/35 transition-colors hover:text-white/65"
+          className="anim-elevate btn-fit h-10 w-full text-sm font-bold text-white/35 transition-colors hover:text-white/65"
           onClick={onBackToSetup}
           type="button"
         >

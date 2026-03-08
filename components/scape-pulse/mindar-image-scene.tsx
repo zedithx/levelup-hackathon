@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type MindARImageSceneProps = {
   targetMindFileSrc: string;
   scanningEnabled: boolean;
-  onTargetFound: () => void;
+  onTargetFound: (targetIndex: number) => void;
+  targetIndexes?: number[];
   onArReadyChange?: (isReady: boolean) => void;
 };
 
@@ -51,15 +52,27 @@ export function MindARImageScene({
   targetMindFileSrc,
   scanningEnabled,
   onTargetFound,
+  targetIndexes,
   onArReadyChange
 }: MindARImageSceneProps) {
   const sceneRef = useRef<MindARSceneElement | null>(null);
-  const targetEntityRef = useRef<HTMLElement | null>(null);
+  const targetEntityRefs = useRef<Record<number, HTMLElement | null>>({});
   const hasStartedRef = useRef(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isArReady, setIsArReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const trackedTargetIndexes = useMemo(() => {
+    const uniqueIndexes = Array.from(new Set(targetIndexes ?? [0])).filter(
+      (targetIndex) => Number.isInteger(targetIndex) && targetIndex >= 0
+    );
+
+    if (!uniqueIndexes.length) {
+      return [0];
+    }
+
+    return uniqueIndexes;
+  }, [targetIndexes]);
 
   const mindArAttr = useMemo(
     () =>
@@ -223,21 +236,27 @@ export function MindARImageScene({
   }, [isArReady]);
 
   useEffect(() => {
-    const targetEntity = targetEntityRef.current;
-    if (!targetEntity) {
-      return;
-    }
+    const cleanups = trackedTargetIndexes.map((targetIndex) => {
+      const targetEntity = targetEntityRefs.current[targetIndex];
+      if (!targetEntity) {
+        return null;
+      }
 
-    const handleTargetFound = () => {
-      onTargetFound();
-    };
+      const handleTargetFound = () => {
+        onTargetFound(targetIndex);
+      };
 
-    targetEntity.addEventListener("targetFound", handleTargetFound);
+      targetEntity.addEventListener("targetFound", handleTargetFound);
+
+      return () => {
+        targetEntity.removeEventListener("targetFound", handleTargetFound);
+      };
+    });
 
     return () => {
-      targetEntity.removeEventListener("targetFound", handleTargetFound);
+      cleanups.forEach((cleanup) => cleanup?.());
     };
-  }, [onTargetFound]);
+  }, [onTargetFound, trackedTargetIndexes]);
 
   if (loadError) {
     return (
@@ -275,21 +294,24 @@ export function MindARImageScene({
         device-orientation-permission-ui="enabled: false"
       >
         <a-camera position="0 0 0" look-controls="enabled: false" />
-        <a-entity
-          mindar-image-target="targetIndex: 0"
-          ref={(node: HTMLElement | null) => {
-            targetEntityRef.current = node;
-          }}
-        >
-          <a-plane color="#00d4ff" height="0.65" opacity="0.58" position="0 0 0" width="1" />
-          <a-text
-            align="center"
-            color="#ffffff"
-            value="Checkpoint matched"
-            width="2"
-            position="0 -0.45 0"
-          />
-        </a-entity>
+        {trackedTargetIndexes.map((targetIndex) => (
+          <a-entity
+            key={targetIndex}
+            mindar-image-target={`targetIndex: ${targetIndex}`}
+            ref={(node: HTMLElement | null) => {
+              targetEntityRefs.current[targetIndex] = node;
+            }}
+          >
+            <a-plane color="#00d4ff" height="0.65" opacity="0.58" position="0 0 0" width="1" />
+            <a-text
+              align="center"
+              color="#ffffff"
+              value={`Station ${targetIndex} matched`}
+              width="2"
+              position="0 -0.45 0"
+            />
+          </a-entity>
+        ))}
       </a-scene>
 
       {hasStarted && !isArReady ? (

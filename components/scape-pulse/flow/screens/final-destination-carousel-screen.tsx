@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EndingCarouselMedia } from "@/components/scape-pulse/flow/types";
 import { BrandBar, PrimaryButton } from "@/components/scape-pulse/flow/ui";
@@ -11,7 +11,6 @@ const DRAWING_FRAME_DURATION_MS = 2400;
 
 type FinalDestinationCarouselScreenProps = {
   media: EndingCarouselMedia;
-  onBackToLobby: () => void;
 };
 
 type EndingSlide = {
@@ -50,18 +49,58 @@ const ENDING_SLIDES: EndingSlide[] = [
   {
     id: "final-song",
     stepLabel: "FINAL DESTINATION",
-    title: "The Song Finale",
+    title: "Bella Ciao Finale",
     description:
-      "The ending lands on your team voice recording of everyone singing the song title together.",
+      "Your uploaded team vocal now plays with the Bella Ciao backing track for the final destination moment.",
     accentClass: "text-[#ffd700]"
   }
 ];
 
-export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDestinationCarouselScreenProps) {
+function sanitizeFileToken(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function extensionFromUrl(src: string, fallback: string) {
+  try {
+    const pathname = new URL(src, typeof window !== "undefined" ? window.location.href : "http://localhost").pathname;
+    const extension = pathname.split(".").pop()?.toLowerCase() ?? "";
+
+    if (/^[a-z0-9]{2,5}$/.test(extension)) {
+      return extension;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+function triggerDownload(url: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarouselScreenProps) {
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [slideProgress, setSlideProgress] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [drawingFrameIndex, setDrawingFrameIndex] = useState(0);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
+  const [isFinalSongPlaying, setIsFinalSongPlaying] = useState(false);
+
+  const voiceTrackRef = useRef<HTMLAudioElement | null>(null);
+  const backingTrackRef = useRef<HTMLAudioElement | null>(null);
 
   const drawings = useMemo(
     () => media.drawings.filter((drawing) => drawing.src.trim()),
@@ -73,6 +112,15 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
   const canMoveNext = activeSlideIndex < ENDING_SLIDES.length - 1;
   const safeDrawingIndex = drawings.length ? drawingFrameIndex % drawings.length : 0;
   const activeDrawing = drawings[safeDrawingIndex];
+  const drawingActualWord = media.drawingStory.actualWord.trim();
+  const drawingFinalWord = media.drawingStory.finalWord.trim();
+  const shouldRevealActualWord = slideProgress >= 18;
+  const shouldRevealFinalWord = slideProgress >= 56;
+  const finalSongVoiceSrc = media.finalSong.audioSrc.trim();
+  const finalSongBackingTrackSrc = media.finalSong.backgroundTrackSrc.trim();
+  const shouldLayerBackingTrack = Boolean(
+    finalSongBackingTrackSrc && finalSongBackingTrackSrc !== finalSongVoiceSrc
+  );
 
   useEffect(() => {
     setSlideProgress(0);
@@ -124,6 +172,29 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
     setDrawingFrameIndex(0);
   }, [activeSlide.id]);
 
+  useEffect(() => {
+    if (activeSlide.id === "final-song") {
+      return;
+    }
+
+    voiceTrackRef.current?.pause();
+
+    if (backingTrackRef.current) {
+      backingTrackRef.current.pause();
+      backingTrackRef.current.currentTime = 0;
+    }
+
+    setIsFinalSongPlaying(false);
+  }, [activeSlide.id]);
+
+  useEffect(() => {
+    if (!backingTrackRef.current || !shouldLayerBackingTrack) {
+      return;
+    }
+
+    backingTrackRef.current.volume = 0.28;
+  }, [shouldLayerBackingTrack]);
+
   const moveSlide = (nextIndex: number) => {
     const boundedIndex = Math.max(0, Math.min(nextIndex, ENDING_SLIDES.length - 1));
     setActiveSlideIndex(boundedIndex);
@@ -131,11 +202,118 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
     setIsAutoPlaying(true);
   };
 
+  const syncBackingTrack = () => {
+    if (!voiceTrackRef.current || !backingTrackRef.current || !shouldLayerBackingTrack) {
+      return;
+    }
+
+    backingTrackRef.current.currentTime = voiceTrackRef.current.currentTime;
+    backingTrackRef.current.playbackRate = voiceTrackRef.current.playbackRate;
+  };
+
+  const handleVoicePlay = () => {
+    setIsFinalSongPlaying(true);
+
+    if (!backingTrackRef.current || !shouldLayerBackingTrack) {
+      return;
+    }
+
+    syncBackingTrack();
+    void backingTrackRef.current.play().catch(() => {});
+  };
+
+  const handleVoicePause = () => {
+    setIsFinalSongPlaying(false);
+    backingTrackRef.current?.pause();
+  };
+
+  const handleVoiceSeeked = () => {
+    syncBackingTrack();
+
+    if (
+      !voiceTrackRef.current
+      || voiceTrackRef.current.paused
+      || !backingTrackRef.current
+      || !shouldLayerBackingTrack
+    ) {
+      return;
+    }
+
+    void backingTrackRef.current.play().catch(() => {});
+  };
+
+  const handleDownloadAll = () => {
+    if (isDownloadingAll) {
+      return;
+    }
+
+    const files: Array<{ url: string; name: string }> = [];
+    const firstMemoryUrl = media.firstLocationImageSrc.trim();
+    const danceUrl = media.secondLocationDanceVideoSrc.trim();
+    const voiceUrl = finalSongVoiceSrc;
+    const backingUrl = finalSongBackingTrackSrc;
+
+    if (firstMemoryUrl) {
+      files.push({
+        name: `first-location-memory.${extensionFromUrl(firstMemoryUrl, "jpg")}`,
+        url: firstMemoryUrl
+      });
+    }
+
+    if (danceUrl) {
+      files.push({
+        name: `group-dance-recording.${extensionFromUrl(danceUrl, "mp4")}`,
+        url: danceUrl
+      });
+    }
+
+    drawings.forEach((drawing, index) => {
+      const token = sanitizeFileToken(drawing.authorName) || `player-${index + 1}`;
+      files.push({
+        name: `drawing-${String(index + 1).padStart(2, "0")}-${token}.${extensionFromUrl(drawing.src, "png")}`,
+        url: drawing.src
+      });
+    });
+
+    if (voiceUrl) {
+      files.push({
+        name: `bella-ciao-team-voice.${extensionFromUrl(voiceUrl, "webm")}`,
+        url: voiceUrl
+      });
+    }
+
+    if (shouldLayerBackingTrack && backingUrl) {
+      files.push({
+        name: `bella-ciao-backing-track.${extensionFromUrl(backingUrl, "mp3")}`,
+        url: backingUrl
+      });
+    }
+
+    if (!files.length) {
+      setDownloadStatus("No uploaded files are available yet.");
+      return;
+    }
+
+    setIsDownloadingAll(true);
+    setDownloadStatus(`Preparing ${files.length} downloads...`);
+
+    files.forEach((file, index) => {
+      window.setTimeout(() => {
+        triggerDownload(file.url, file.name);
+      }, index * 180);
+    });
+
+    window.setTimeout(() => {
+      setIsDownloadingAll(false);
+      setDownloadStatus(`Queued ${files.length} files for download.`);
+    }, files.length * 180 + 320);
+  };
+
   return (
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
+      <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-2">
         <div className="anim-fade-up" style={reveal(40)}>
           <p className="text-xs tracking-[0.2em] text-[#ffd700]">FINAL DESTINATION REACHED</p>
           <h1 className="mt-2 font-display text-[clamp(1.95rem,8.6vw,2.35rem)] leading-none text-white">
@@ -238,6 +416,28 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
                     </>
                   ) : null}
                 </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div
+                    className={cn(
+                      "rounded-xl border border-[#ff3399]/35 bg-[rgba(255,51,153,0.12)] px-3 py-2 transition-all duration-700",
+                      shouldRevealActualWord ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+                    )}
+                  >
+                    <p className="text-[0.62rem] tracking-[0.12em] text-[#ffc4e3]">ACTUAL WORD</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{drawingActualWord || "Not captured"}</p>
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded-xl border border-[#ffd700]/35 bg-[rgba(255,215,0,0.1)] px-3 py-2 transition-all duration-700",
+                      shouldRevealFinalWord ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+                    )}
+                  >
+                    <p className="text-[0.62rem] tracking-[0.12em] text-[#ffe388]">FINAL WORD</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{drawingFinalWord || "No final guess"}</p>
+                  </div>
+                </div>
+
                 {drawings.length > 1 ? (
                   <div className="grid grid-cols-4 gap-2">
                     {drawings.slice(0, 4).map((drawing, index) => (
@@ -260,8 +460,10 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
 
             {activeSlide.id === "final-song" ? (
               <div className="rounded-[16px] border border-[#ffd700]/25 bg-[linear-gradient(180deg,rgba(255,215,0,0.1),rgba(255,215,0,0.03))] p-4">
-                <p className="text-[0.7rem] tracking-[0.15em] text-[#ffd700]">TEAM VOICE RECORDING</p>
-                <p className="mt-2 font-display text-[clamp(1.45rem,6.2vw,1.8rem)] leading-none text-white">{media.finalSong.songTitle}</p>
+                <p className="text-[0.7rem] tracking-[0.15em] text-[#ffd700]">TEAM VOICE RECORDING + BELLA CIAO BACKING</p>
+                <p className="mt-2 font-display text-[clamp(1.45rem,6.2vw,1.8rem)] leading-none text-white">
+                  {media.finalSong.songTitle}
+                </p>
                 {media.finalSong.voiceContributors.length ? (
                   <p className="mt-2 text-xs leading-5 text-[#ffe9a8]">
                     Voices by {media.finalSong.voiceContributors.join(", ")}
@@ -273,7 +475,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
                     <span
                       className={cn(
                         "h-2 w-1 rounded-full bg-[#ffd700]/80",
-                        isAutoPlaying ? "anim-audio-wave" : ""
+                        isFinalSongPlaying ? "anim-audio-wave" : ""
                       )}
                       key={index}
                       style={{ animationDelay: `${index * 90}ms` }}
@@ -281,7 +483,30 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
                   ))}
                 </div>
 
-                <audio className="mt-4 w-full" controls preload="metadata" src={media.finalSong.audioSrc} />
+                <audio
+                  className="mt-4 w-full"
+                  controls
+                  onEnded={handleVoicePause}
+                  onPause={handleVoicePause}
+                  onPlay={handleVoicePlay}
+                  onRateChange={handleVoiceSeeked}
+                  onSeeked={handleVoiceSeeked}
+                  preload="metadata"
+                  ref={voiceTrackRef}
+                  src={media.finalSong.audioSrc}
+                />
+                {shouldLayerBackingTrack ? (
+                  <audio
+                    aria-hidden
+                    className="hidden"
+                    preload="metadata"
+                    ref={backingTrackRef}
+                    src={finalSongBackingTrackSrc}
+                  />
+                ) : null}
+                <p className="mt-2 text-[0.68rem] leading-5 text-white/45">
+                  Press play to hear the team recording synced with Bella Ciao background music.
+                </p>
               </div>
             ) : null}
           </div>
@@ -290,7 +515,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
         <div className="anim-fade-up mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2" style={reveal(170)}>
           <button
             className={cn(
-              "h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
+              "anim-elevate btn-fit h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
               canMovePrevious
                 ? "border-white/20 text-white/75 hover:border-white/40 hover:text-white"
                 : "border-white/10 text-white/25"
@@ -303,7 +528,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
           </button>
 
           <button
-            className="h-11 rounded-[12px] border border-[#ff6b00]/40 px-4 text-xs tracking-[0.08em] text-[#ffb17d] transition-colors hover:border-[#ff6b00] hover:text-[#ffd5b6]"
+            className="anim-elevate btn-fit h-11 rounded-[12px] border border-[#ff6b00]/40 px-4 text-xs tracking-[0.08em] text-[#ffb17d] transition-colors hover:border-[#ff6b00] hover:text-[#ffd5b6]"
             onClick={() => setIsAutoPlaying((current) => !current)}
             type="button"
           >
@@ -312,7 +537,7 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
 
           <button
             className={cn(
-              "h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
+              "anim-elevate btn-fit h-11 rounded-[12px] border text-xs tracking-[0.08em] transition-colors",
               canMoveNext
                 ? "border-white/20 text-white/75 hover:border-white/40 hover:text-white"
                 : "border-white/10 text-white/25"
@@ -326,7 +551,12 @@ export function FinalDestinationCarouselScreen({ media, onBackToLobby }: FinalDe
         </div>
 
         <div className="anim-fade-up mt-2" style={reveal(200)}>
-          <PrimaryButton label="Back to Lobby" onClick={onBackToLobby} />
+          <PrimaryButton
+            disabled={isDownloadingAll}
+            label={isDownloadingAll ? "Preparing Downloads..." : "Download All Memories"}
+            onClick={handleDownloadAll}
+          />
+          {downloadStatus ? <p className="mt-2 text-center text-xs text-white/45">{downloadStatus}</p> : null}
         </div>
       </div>
     </div>

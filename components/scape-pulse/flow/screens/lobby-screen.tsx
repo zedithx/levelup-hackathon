@@ -42,7 +42,7 @@ export function LobbyScreen({
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar showPhoneIndicator />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-5">
+      <div className="flex-1 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
         <div className="anim-fade-up pt-4" style={reveal(60)}>
           <div className="mb-1 flex items-center justify-center gap-2">
             {editingSquadName ? (
@@ -117,7 +117,7 @@ export function LobbyScreen({
 
           {!expandedAddTeammate ? (
             <button
-              className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] border border-white/10 text-sm font-bold text-white/30 transition-colors hover:border-[#ff6b00]/40 hover:text-white/70"
+              className="anim-elevate btn-fit flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] border border-white/10 text-sm font-bold text-white/30 transition-colors hover:border-[#ff6b00]/40 hover:text-white/70"
               onClick={() => setExpandedAddTeammate(true)}
               type="button"
             >
@@ -199,7 +199,7 @@ export function LobbyScreen({
           </p>
           <button
             className={cn(
-              "flex h-[60px] w-full items-center justify-center rounded-2xl font-display text-[clamp(1rem,4.4vw,1.12rem)] leading-7 tracking-[0.045em] transition-colors",
+              "anim-elevate btn-fit flex h-[60px] w-full items-center justify-center rounded-2xl font-display text-[clamp(1rem,4.4vw,1.12rem)] leading-7 tracking-[0.045em] transition-colors",
               minTeammateCountMet
                 ? "bg-[#ff6b00] text-white hover:bg-[#ff7e24]"
                 : "bg-[rgba(255,107,0,0.15)] text-white/20"

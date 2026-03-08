@@ -150,8 +150,7 @@ export const RACE_FLOW_CONFIG: RaceFlowConfig = {
     name: "Checkpoint 1",
     imagePlaceholderSrc:
       "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.png",
-    targetMindFileSrc:
-      "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.mind"
+    targetMindFileSrc: "/station-references/stations.mind"
   },
   dialogue: [
     {
@@ -191,9 +190,14 @@ export const ENDING_CAROUSEL_DEFAULT_MEDIA: EndingCarouselMedia = {
       authorName: "Mika"
     }
   ],
+  drawingStory: {
+    actualWord: "Moonwalk",
+    finalWord: "Moonwalk"
+  },
   finalSong: {
-    audioSrc: "https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3",
-    songTitle: "Pulse Anthem",
-    voiceContributors: ["Jun", "Tania", "Kai", "Mika"]
+    audioSrc: "/music/bella-ciao.mp3",
+    songTitle: "Bella Ciao",
+    voiceContributors: ["Jun", "Tania", "Kai", "Mika"],
+    backgroundTrackSrc: "/music/bella-ciao.mp3"
   }
 };

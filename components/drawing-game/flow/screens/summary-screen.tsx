@@ -3,11 +3,11 @@ import { FlowShell, Panel, PrimaryButton } from "@/components/drawing-game/flow/
 
 type SummaryScreenProps = {
   turns: TurnAllocation[];
-  onReplay: () => void;
+  onContinueToAr: () => void;
   onBackToSetup: () => void;
 };
 
-export function SummaryScreen({ turns, onReplay, onBackToSetup }: SummaryScreenProps) {
+export function SummaryScreen({ turns, onContinueToAr, onBackToSetup }: SummaryScreenProps) {
   return (
     <FlowShell stepLabel="COMPLETE">
       <div className="anim-fade-up">
@@ -34,9 +34,9 @@ export function SummaryScreen({ turns, onReplay, onBackToSetup }: SummaryScreenP
       </Panel>
 
       <div className="anim-fade-up mt-4 space-y-2">
-        <PrimaryButton label="Play Again" onClick={onReplay} />
+        <PrimaryButton label="Continue to AR" onClick={onContinueToAr} />
         <button
-          className="h-10 w-full text-sm font-bold text-white/35 transition-colors hover:text-white/65"
+          className="anim-elevate btn-fit h-10 w-full text-sm font-bold text-white/35 transition-colors hover:text-white/65"
           onClick={onBackToSetup}
           type="button"
         >

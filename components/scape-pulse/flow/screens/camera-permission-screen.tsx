@@ -26,7 +26,7 @@ export function CameraPermissionScreen({
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
       <BrandBar />
 
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-6">
+      <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6">
         <div className="anim-fade-up rounded-[16px] border border-[#00d4ff]/35 bg-[rgba(0,212,255,0.08)] px-4 py-5">
           <p className="text-xs tracking-[0.2em] text-[#00d4ff]">CAMERA ACCESS</p>
           <h1 className="mt-2 font-display text-[clamp(1.85rem,8.2vw,2.2rem)] leading-none text-white">
@@ -80,7 +80,7 @@ export function CameraPermissionScreen({
             onClick={onRequestCameraPermission}
           />
           <button
-            className="h-11 w-full text-sm font-bold text-white/25 transition-colors hover:text-white/55"
+            className="anim-elevate btn-fit h-11 w-full text-sm font-bold text-white/25 transition-colors hover:text-white/55"
             onClick={onBackToLobby}
             type="button"
           >

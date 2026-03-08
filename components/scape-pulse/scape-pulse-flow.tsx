@@ -741,7 +741,7 @@ export function ScapePulseFlow() {
         ) : null}
 
         {screen === "final-destination-carousel" ? (
-          <FinalDestinationCarouselScreen media={endingCarouselMedia} onBackToLobby={backToLobby} />
+          <FinalDestinationCarouselScreen media={endingCarouselMedia} />
         ) : null}
       </main>
     </div>

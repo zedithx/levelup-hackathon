@@ -270,6 +270,15 @@ body {
   .anim-stagger :where(button:not(:disabled):not(.anim-soft-spin), [role="button"]):active {
     transform: translate3d(0, 0, 0) scale(0.99);
   }
+
+  .btn-fit {
+    min-height: 2.75rem;
+    max-width: 100%;
+    padding-inline: 0.875rem;
+    text-align: center;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

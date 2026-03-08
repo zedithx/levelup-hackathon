@@ -13,18 +13,24 @@ type StoredMemoryAssets = {
   selfieImageSrc: string;
   danceVideoSrc: string;
   drawings: StoredDrawingAsset[];
+  drawingActualWord: string;
+  drawingFinalWord: string;
   finalSongAudioSrc: string;
   finalSongTitle: string;
   finalSongVoiceContributors: string[];
+  finalSongBackgroundTrackSrc: string;
 };
 
 const EMPTY_MEMORY_ASSETS: StoredMemoryAssets = {
   selfieImageSrc: "",
   danceVideoSrc: "",
   drawings: [],
+  drawingActualWord: "",
+  drawingFinalWord: "",
   finalSongAudioSrc: "",
   finalSongTitle: "",
-  finalSongVoiceContributors: []
+  finalSongVoiceContributors: [],
+  finalSongBackgroundTrackSrc: ""
 };
 
 function isBrowser() {
@@ -73,6 +79,33 @@ function normalizeContributors(value: unknown): string[] {
     .slice(0, 12);
 }
 
+function normalizeDrawingSrcList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => cleanString(item))
+    .filter(Boolean);
+}
+
+function normalizeLegacyDrawings(value: unknown, fallbackAuthors: unknown): StoredDrawingAsset[] {
+  const drawingSrcs = normalizeDrawingSrcList(value);
+
+  if (!drawingSrcs.length) {
+    return [];
+  }
+
+  const authorNames = Array.isArray(fallbackAuthors)
+    ? fallbackAuthors.map((item) => cleanString(item))
+    : [];
+
+  return drawingSrcs.map((src, index) => ({
+    src,
+    authorName: authorNames[index] || `Player ${index + 1}`
+  }));
+}
+
 function parseStoredAssets(raw: string | null): StoredMemoryAssets {
   if (!raw) {
     return EMPTY_MEMORY_ASSETS;
@@ -80,14 +113,45 @@ function parseStoredAssets(raw: string | null): StoredMemoryAssets {
 
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const finalSongRecord =
+      parsed.finalSong && typeof parsed.finalSong === "object"
+        ? (parsed.finalSong as Record<string, unknown>)
+        : null;
+    const normalizedDrawings = normalizeDrawings(parsed.drawings);
+    const legacyDrawingsFromSlideShow = normalizeLegacyDrawings(
+      parsed.drawingsSlideshowSrcs,
+      parsed.drawingAuthorNames
+    );
+    const legacyDrawingsFromStringArray = normalizeLegacyDrawings(parsed.drawings, parsed.drawingAuthorNames);
+    const legacyDrawings = legacyDrawingsFromSlideShow.length
+      ? legacyDrawingsFromSlideShow
+      : legacyDrawingsFromStringArray;
+    const normalizedFinalSongContributors = normalizeContributors(parsed.finalSongVoiceContributors);
+    const legacyFinalSongContributors = finalSongRecord
+      ? normalizeContributors(finalSongRecord.voiceContributors)
+      : [];
 
     return {
-      selfieImageSrc: cleanString(parsed.selfieImageSrc),
-      danceVideoSrc: cleanString(parsed.danceVideoSrc),
-      drawings: normalizeDrawings(parsed.drawings),
-      finalSongAudioSrc: cleanString(parsed.finalSongAudioSrc),
-      finalSongTitle: cleanString(parsed.finalSongTitle),
-      finalSongVoiceContributors: normalizeContributors(parsed.finalSongVoiceContributors)
+      selfieImageSrc: cleanString(parsed.selfieImageSrc) || cleanString(parsed.firstLocationImageSrc),
+      danceVideoSrc: cleanString(parsed.danceVideoSrc) || cleanString(parsed.secondLocationDanceVideoSrc),
+      drawings: normalizedDrawings.length ? normalizedDrawings : legacyDrawings,
+      drawingActualWord: cleanString(parsed.drawingActualWord) || cleanString(parsed.actualWord),
+      drawingFinalWord:
+        cleanString(parsed.drawingFinalWord)
+        || cleanString(parsed.finalWord)
+        || cleanString(parsed.revealedGuess),
+      finalSongAudioSrc: cleanString(parsed.finalSongAudioSrc) || cleanString(finalSongRecord?.audioSrc),
+      finalSongTitle:
+        cleanString(parsed.finalSongTitle)
+        || cleanString(parsed.songTitle)
+        || cleanString(finalSongRecord?.songTitle),
+      finalSongVoiceContributors:
+        normalizedFinalSongContributors.length
+          ? normalizedFinalSongContributors
+          : legacyFinalSongContributors,
+      finalSongBackgroundTrackSrc:
+        cleanString(parsed.finalSongBackgroundTrackSrc)
+        || cleanString(finalSongRecord?.backgroundTrackSrc)
     };
   } catch {
     return EMPTY_MEMORY_ASSETS;
@@ -127,11 +191,18 @@ export function saveDanceMemoryAsset(videoSrc: string) {
   });
 }
 
-export function saveDrawingMemoryAssets(drawings: StoredDrawingAsset[]) {
+type SaveDrawingMemoryOptions = {
+  actualWord?: string;
+  finalWord?: string;
+};
+
+export function saveDrawingMemoryAssets(drawings: StoredDrawingAsset[], options: SaveDrawingMemoryOptions = {}) {
   const current = readStoredAssets();
   writeStoredAssets({
     ...current,
-    drawings: normalizeDrawings(drawings)
+    drawings: normalizeDrawings(drawings),
+    drawingActualWord: options.actualWord?.trim() || current.drawingActualWord,
+    drawingFinalWord: options.finalWord?.trim() || current.drawingFinalWord
   });
 }
 
@@ -139,16 +210,23 @@ type SaveFinalSongAssetOptions = {
   audioSrc: string;
   songTitle: string;
   voiceContributors: string[];
+  backgroundTrackSrc?: string;
 };
 
-export function saveFinalSongMemoryAsset({ audioSrc, songTitle, voiceContributors }: SaveFinalSongAssetOptions) {
+export function saveFinalSongMemoryAsset({
+  audioSrc,
+  songTitle,
+  voiceContributors,
+  backgroundTrackSrc
+}: SaveFinalSongAssetOptions) {
   const current = readStoredAssets();
 
   writeStoredAssets({
     ...current,
     finalSongAudioSrc: audioSrc.trim(),
     finalSongTitle: songTitle.trim(),
-    finalSongVoiceContributors: normalizeContributors(voiceContributors)
+    finalSongVoiceContributors: normalizeContributors(voiceContributors),
+    finalSongBackgroundTrackSrc: backgroundTrackSrc?.trim() || current.finalSongBackgroundTrackSrc
   });
 }
 
@@ -160,12 +238,18 @@ export function buildEndingCarouselMediaFromStoredAssets(): EndingCarouselMedia 
     secondLocationDanceVideoSrc:
       stored.danceVideoSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.secondLocationDanceVideoSrc,
     drawings: stored.drawings.length ? stored.drawings : ENDING_CAROUSEL_DEFAULT_MEDIA.drawings,
+    drawingStory: {
+      actualWord: stored.drawingActualWord || ENDING_CAROUSEL_DEFAULT_MEDIA.drawingStory.actualWord,
+      finalWord: stored.drawingFinalWord || ENDING_CAROUSEL_DEFAULT_MEDIA.drawingStory.finalWord
+    },
     finalSong: {
       audioSrc: stored.finalSongAudioSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.audioSrc,
       songTitle: stored.finalSongTitle || ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.songTitle,
       voiceContributors: stored.finalSongVoiceContributors.length
         ? stored.finalSongVoiceContributors
-        : ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.voiceContributors
+        : ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.voiceContributors,
+      backgroundTrackSrc:
+        stored.finalSongBackgroundTrackSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.backgroundTrackSrc
     }
   };
 }

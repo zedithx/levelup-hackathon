@@ -32,7 +32,7 @@ export function ClassCodeScreen({
       <BrandBar />
       <ProgressDots step={5} />
 
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-2">
+      <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-2">
         <div className="flex flex-1 flex-col items-center justify-center">
           <div
             className="anim-fade-up relative mb-9 flex size-20 items-center justify-center rounded-2xl border border-[rgba(255,107,0,0.2)] bg-[rgba(255,107,0,0.1)]"
@@ -97,7 +97,7 @@ export function ClassCodeScreen({
         <div className="anim-fade-up space-y-2" style={reveal(350)}>
           <PrimaryButton disabled={!canJoin} label="Join Game" onClick={onJoin} />
           <button
-            className="h-11 w-full text-sm font-bold text-white/20 transition-colors hover:text-white/45"
+            className="anim-elevate btn-fit h-11 w-full text-sm font-bold text-white/20 transition-colors hover:text-white/45"
             onClick={onBackToIntro}
             type="button"
           >
