@@ -1,23 +1,23 @@
 /**
- * Mission scripts for all 4 checkpoints. All mascots share the same content
- * (they are all called Pingo) but differ only in their intro SFX.
+ * Mission scripts for all 4 checkpoints.
+ * Each field is a string[] so the AR guide can show lines sequentially.
  *
  * Checkpoint ↔ image-target index mapping:
- *   0 → balcony    (Mission 3 – The Piano Balcony,    Level 4)
- *   1 → butt       (Mission 4 – The Monster Pile,     Level 4)
- *   2 → butterfly  (Mission 2 – The Studio Butterfly, Level 3)
- *   3 → car        (Mission 1 – The Robot Ride,       Basement 1)
+ * 0 → balcony    (Mission 3 – The Piano Balcony,     Level 4)
+ * 1 → butt       (Mission 4 – The Monster Pile,      Level 4)
+ * 2 → butterfly  (Mission 2 – The Studio Butterfly,  Level 3)
+ * 3 → car        (Mission 1 – The Robot Ride,        Basement 1)
  */
 
 export type CheckpointPhase = {
   /** Mascot briefing shown while the player hunts for the checkpoint image */
-  intro: string;
+  intro: string[];
   /** Mascot reaction the moment the image target is matched */
-  found: string;
+  found: string[];
   /** Challenge instruction (selfie / dance / sing / draw) */
-  challenge: string;
+  challenge: string[];
   /** Victory line + riddle leading to the next checkpoint */
-  success: string;
+  success: string[];
 };
 
 export type MascotScript = {
@@ -40,56 +40,108 @@ export const TARGET_INDEX_TO_CHECKPOINT: Record<number, keyof MascotScript["chec
   1: "butt",
 };
 
-// Shared mission content — all mascots are Pingo, same script regardless of animal skin.
 const SHARED_CHECKPOINTS: MascotScript["checkpoints"] = {
   car: {
     // Mission 1: The Robot Ride (Basement 1)
-    intro:
-      "Go all the way down to B1. Find the white car with the orange robot arm sitting on the checkered floor.",
-    found:
-      "Target spotted! You found the weirdest car in Somerset.",
-    challenge:
-      "Time for a squad photo! Get in the frame with this robotic beast and take a selfie!",
-    success:
-      "Epic! That's a wrap. You just earned +500 XP!",
+    intro: [
+      "Scanning biometrics... Found you! I'm Pingo, your tactical guide for today's mission.",
+      "You look like you can run — good, because we've got ground to cover and a leaderboard to climb!",
+      "Head all the way down to Basement 1. Find the white car with the orange robot arm sitting on the checkered floor. That's your target!",
+    ],
+    found: [
+      "Target acquired! You've sniffed out the metallic anomaly resting in the checkered depths.",
+      "Not many make it this far down without getting lost in the code!",
+    ],
+    challenge: [
+      "This beast needs a record in our database.",
+      "Align the squad, get in the frame, and pull your best 'Mission Accomplished' face for the selfie!",
+    ],
+    success: [
+      "EPIC SHOT! That's +500 XP uploaded. But keep moving...",
+      "I'm smelling a sweet nectar above. Head to Level 3.",
+      "Search for the concrete garden where a red smile is frozen on silent wings near the mirrors.",
+    ],
   },
   butterfly: {
     // Mission 2: The Studio Butterfly (Level 3)
-    intro:
-      "Head up to Level 3. Search near the dance mirrors for the red smiling butterfly that lives on the wall.",
-    found:
-      "You found it! This is where the K-Pop magic happens.",
-    challenge:
-      "Main character moment! Record a 10-second dance in front of the mirrors—show me your best moves!",
-    success:
-      "SICK MOVES! You've officially earned the 'Trendsetter' status!",
+    intro: [
+      "Ascend to the hall of reflections where the sky is made of mirrors!",
+      "Search near the dance spaces for the silent gardener with crimson petals for wings — it watches the performers but never leaves the wall.",
+      "Don't be a chicken — Level 3 is waiting for you!",
+    ],
+    found: [
+      "Stop! Tactical objective reached! You found the grinning insect in the concrete jungle.",
+      "My sensors are picking up some serious rhythm coming from these mirror-lined walls...",
+    ],
+    challenge: [
+      "This is the main stage!",
+      "Form a triangle, stay in synchronized paws, and give me 10 seconds of pure main character energy for the camera!",
+    ],
+    success: [
+      "SICK MOVES! Sending that straight to the global archives.",
+      "You've officially earned 'Trendsetter' status!",
+      "Next, climb to the summit where the city touches the clouds. Find the balcony on Level 4 with the keys no finger can play.",
+    ],
   },
   balcony: {
     // Mission 3: The Piano Balcony (Level 4)
-    intro:
-      "Ascend to Level 4. Find the balcony with the great city view and the piano painted on the floor.",
-    found:
-      "What a view! This is the perfect spot for a little performance.",
-    challenge:
-      "Listen to the jingle... now sing it back into the mic as loud as you can!",
-    success:
-      "Awoo! You guys hit those high notes perfectly. 'Golden Vocals' prize secured!",
+    intro: [
+      "Look alive, Recruit! The sky isn't falling, but our ranking will be if we don't move!",
+      "Locate the floor-piano resting at the very edge of the urban forest on the Level 4 balcony.",
+      "It's a deep-dive into the views, and you'll have to take point!",
+    ],
+    found: [
+      "You made it to the ultimate VIP platform!",
+      "Look at that panoramic view — it's the perfect acoustic environment for what comes next.",
+    ],
+    challenge: [
+      "The wind is your only audience here.",
+      "Listen to this Somerset jingle snippet...",
+      "Now I need the whole squad to howl it back into the mic with maximum volume!",
+    ],
+    success: [
+      "Awoo! Now that's what I call a remix!",
+      "You guys hit those high notes like absolute pros. 'Golden Vocals' prize secured!",
+      "Final stop: Find the colorful monster horde hiding around the corner on Level 4.",
+    ],
   },
   butt: {
     // Mission 4: The Monster Pile (Level 4)
-    intro:
-      "Stay on Level 4. Find the wall of colorful monsters—look for the big blue one showing off!",
-    found:
-      "Whoa! You found the monster horde. They look like they need a new friend.",
-    challenge:
-      "Let's get creative! Draw your own monster on the screen and add it to the pile!",
-    success:
-      "MISSION COMPLETE! That drawing is a masterpiece. You are now a 'Master Artist'!",
+    intro: [
+      "Venture to the forgotten corner where the colorful many show their true nature.",
+      "Find the indigo moon leading a parade of eyes away from the light.",
+      "Don't just stand there — move those trotters and find that mural!",
+    ],
+    found: [
+      "Whoa, you actually tracked down the colorful horde!",
+      "Careful — I think these monsters are mooning us. Let's add to the chaos, shall we?",
+    ],
+    challenge: [
+      "We're building a new 'Guardian of Scape.'",
+      "Everyone take a turn sketching a piece of the monster on your screen — give it big teeth and maybe some sneakers!",
+    ],
+    success: [
+      "MISSION COMPLETE! That drawing is a masterpiece of chaos.",
+      "You are now a 'Master Artist'!",
+      "Let's check the final leaderboard and see if your squad took the crown!",
+    ],
   },
 };
 
 export const MASCOT_SCRIPTS: Record<"dog" | "pig" | "chicken", MascotScript> = {
-  dog:     { mascotName: "Pingo", introSfx: "Rapid tail thumping + Excited \"Woof!\"",          checkpoints: SHARED_CHECKPOINTS },
-  pig:     { mascotName: "Pingo", introSfx: "High-pitched \"Oink!\" + Satisfied snuffling",      checkpoints: SHARED_CHECKPOINTS },
-  chicken: { mascotName: "Pingo", introSfx: "Chaotic wing flapping + Sudden \"BA-GOCK!\"",       checkpoints: SHARED_CHECKPOINTS },
+  dog: {
+    mascotName: "Pingo",
+    introSfx: "Rapid tail thumping + Excited \"Woof!\"",
+    checkpoints: SHARED_CHECKPOINTS,
+  },
+  pig: {
+    mascotName: "Pingo",
+    introSfx: "High-pitched \"Oink!\" + Satisfied snuffling",
+    checkpoints: SHARED_CHECKPOINTS,
+  },
+  chicken: {
+    mascotName: "Pingo",
+    introSfx: "Chaotic wing flapping + Sudden \"BA-GOCK!\"",
+    checkpoints: SHARED_CHECKPOINTS,
+  },
 };

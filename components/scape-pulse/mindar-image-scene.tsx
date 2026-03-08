@@ -76,7 +76,7 @@ export function MindARImageScene({
 
   const mindArAttr = useMemo(
     () =>
-      `imageTargetSrc: ${targetMindFileSrc}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;`,
+      `imageTargetSrc: ${targetMindFileSrc}; autoStart: false;`,
     [targetMindFileSrc]
   );
 
@@ -202,7 +202,13 @@ export function MindARImageScene({
       setHasStarted(true);
       setIsArReady(false);
       onArReadyChange?.(false);
-      mindarSystem.start?.();
+      try {
+        mindarSystem.start?.();
+      } catch {
+        setLoadError("Unable to start camera AR. Please retry.");
+        setIsArReady(false);
+        onArReadyChange?.(false);
+      }
       return;
     }
 
@@ -293,7 +299,7 @@ export function MindARImageScene({
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
       >
-        <a-camera position="0 0 0" look-controls="enabled: false" />
+        <a-camera camera="fov: 60" position="0 0 0" look-controls="enabled: false" />
         {trackedTargetIndexes.map((targetIndex) => (
           <a-entity
             key={targetIndex}
@@ -325,3 +331,5 @@ export function MindARImageScene({
     </div>
   );
 }
+
+

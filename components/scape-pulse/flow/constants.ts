@@ -168,6 +168,29 @@ export const RACE_FLOW_CONFIG: RaceFlowConfig = {
   ]
 };
 
+export const INTER_STATION_GUIDES = {
+  toSelfie: {
+    checkpointName: "Station 2: Team Selfie",
+    hint: "Head to the Atrium and take the ultimate team selfie together!"
+  },
+  toDance: {
+    checkpointName: "Station 3: Butterfly Dance",
+    hint: "Make your way to Butterfly Station for the viral team dance challenge!"
+  },
+  toDrawing: {
+    checkpointName: "Station 4: Monster Drawing",
+    hint: "Head to Monster Station — one sees the word, the rest must draw it!"
+  },
+  toSinging: {
+    checkpointName: "Station 5: Balcony Singing",
+    hint: "Head up to the Balcony for the singing challenge — time to perform!"
+  },
+  toCelebration: {
+    checkpointName: "Grand Finale",
+    hint: "All challenges complete — head back to the main hall for the grand reveal!"
+  }
+} as const;
+
 export const ENDING_CAROUSEL_DEFAULT_MEDIA: EndingCarouselMedia = {
   firstLocationImageSrc: "https://placehold.co/1440x960/101010/ffffff?text=First+Game+Memory",
   secondLocationDanceVideoSrc: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",

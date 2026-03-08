@@ -23,7 +23,7 @@ function formatFileSize(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-export function SelfieFlow() {
+export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const verifyTimeoutRef = useRef<number | null>(null);
@@ -270,22 +270,32 @@ export function SelfieFlow() {
             onClick={runVerification}
           />
 
+          <button
+            className="mt-2 h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
+            onClick={() => onComplete ? onComplete() : router.push("/ar-experience")}
+            type="button"
+          >
+            [DEV] Skip selfie verification
+          </button>
+
           {isSuccessful ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className={`mt-3 ${onComplete ? "" : "grid grid-cols-2 gap-2"}`}>
               <button
-                className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-white/25 hover:text-white"
-                onClick={() => router.push("/ar-experience")}
+                className="anim-elevate btn-fit h-11 w-full rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-white/25 hover:text-white"
+                onClick={() => onComplete ? onComplete() : router.push("/ar-experience")}
                 type="button"
               >
                 Continue to AR
               </button>
-              <button
-                className="anim-elevate btn-fit h-11 rounded-xl border border-[#00d4ff]/35 bg-[#00d4ff]/20 text-sm font-bold text-[#b8f4ff] transition-colors hover:border-[#00d4ff]/60 hover:bg-[#00d4ff]/30"
-                onClick={() => router.push("/")}
-                type="button"
-              >
-                Back to Lobby
-              </button>
+              {!onComplete ? (
+                <button
+                  className="anim-elevate btn-fit h-11 rounded-xl border border-[#00d4ff]/35 bg-[#00d4ff]/20 text-sm font-bold text-[#b8f4ff] transition-colors hover:border-[#00d4ff]/60 hover:bg-[#00d4ff]/30"
+                  onClick={() => router.push("/")}
+                  type="button"
+                >
+                  Back to Lobby
+                </button>
+              ) : null}
             </div>
           ) : null}
         </Panel>
