@@ -755,10 +755,6 @@ export function ScapePulseFlow() {
     } catch {}
   }, []);
 
-  const openFinalDestinationCarousel = () => {
-    clearSession();
-    setScreenState("final-destination-carousel");
-  };
 
   const resetFlow = useCallback(() => {
     clearSession();
@@ -908,7 +904,6 @@ export function ScapePulseFlow() {
               setScreen(checkpointTransition?.nextScreen ?? "selfie");
               setCheckpointTransition(null);
             }}
-            onViewFinalDestination={openFinalDestinationCarousel}
             onBackToLobby={backToLobby}
           />
         ) : null}
@@ -1046,6 +1041,9 @@ export function ScapePulseFlow() {
     </div>
   );
 }
+
+
+
 
 
 
