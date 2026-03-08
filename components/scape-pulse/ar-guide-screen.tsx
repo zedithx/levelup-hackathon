@@ -112,6 +112,12 @@ const POST_CHECKPOINT_DIALOGUE: Record<AnimalType, DialogueLine[]> = {
   chicken: [{ sfx: "bagock",  text: "Look at that unique specimen! My eye for style is never wrong. BAWK! Don't let it go to your head — we've got more checkpoints to crack!" }, { sfx: "cluck-retreat", text: "" }],
 };
 
+const FAREWELL_LINES: Record<AnimalType, string> = {
+  pig: "Race you there! Try to keep up with these trotters.",
+  dog: "Race you there, Recruit. Full sprint!",
+  chicken: "BAWK! Race you there. Last one there buys corn!",
+};
+
 function playSfx(type: SfxType): void {
   if (typeof window === "undefined") return;
   try {
@@ -181,6 +187,10 @@ const MODEL_SCALE = 0.35;
 const LEAD_DISTANCE = 3.5;
 /** Lerp speed toward target each frame (lower = smoother / slower) */
 const LERP_ALPHA = 0.03;
+/** Fixed floor-arrow spawn distance from camera when guide mode starts */
+const FLOOR_ARROW_DISTANCE = 1.8;
+/** Fixed world direction for the floor arrow (0 = world +Z) */
+const FLOOR_ARROW_YAW = 0;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -192,6 +202,8 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
   const bobGroupRef = useRef<any>(null);
   const walkingAwayRef = useRef(false);
   const guideModeRef = useRef(false);
+  const showFloorArrowRef = useRef(false);
+  const avatarHiddenRef = useRef(false);
   const facingUserUntilRef = useRef(-1); // timestamp until pig faces user during a trigger // false = dialogue (face user), true = guide (back to user)
 
   const [status, setStatus] = useState<ArStatus>("checking");
@@ -200,6 +212,9 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
   const [dialogueIndex, setDialogueIndex] = useState(-1);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
   const [isGuideMode, setIsGuideMode] = useState(false);
+  const [poofActive, setPoofActive] = useState(false);
+  const [farewellMsg, setFarewellMsg] = useState<string | null>(null);
+  const poofTimeoutRef = useRef<number | null>(null);
   // Stable ref so the animation-loop closure can call setTriggerMsg without re-creating
   const setTriggerMsgRef = useRef(setTriggerMsg);
 
@@ -217,12 +232,21 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
     return () => {
       rendererRef.current?.setAnimationLoop(null);
       sessionRef.current?.end().catch(() => {});
+      if (poofTimeoutRef.current !== null) {
+        window.clearTimeout(poofTimeoutRef.current);
+        poofTimeoutRef.current = null;
+      }
     };
   }, []);
 
   const startAR = useCallback(async () => {
     setStatus("starting");
     setErrorMsg(null);
+    walkingAwayRef.current = false;
+    guideModeRef.current = false;
+    showFloorArrowRef.current = false;
+    avatarHiddenRef.current = false;
+    setIsGuideMode(false);
 
     try {
       await ensureThree();
@@ -284,6 +308,37 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
       shadowMesh.rotation.x = -Math.PI / 2;
       scene.add(shadowMesh);
 
+      // Floor arrow appears after dialogue ends; stays fixed in world space.
+      const floorArrow = new THREE.Group();
+      const arrowMaterial = new THREE.MeshStandardMaterial({
+        color: 0xff6b00,
+        emissive: 0x3a1300,
+        roughness: 0.55,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+      });
+      const arrowShape = new THREE.Shape();
+      arrowShape.moveTo(0, 0.58);
+      arrowShape.lineTo(0.24, 0.2);
+      arrowShape.lineTo(0.1, 0.2);
+      arrowShape.lineTo(0.1, -0.58);
+      arrowShape.lineTo(-0.1, -0.58);
+      arrowShape.lineTo(-0.1, 0.2);
+      arrowShape.lineTo(-0.24, 0.2);
+      arrowShape.lineTo(0, 0.58);
+      const arrowMesh = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), arrowMaterial);
+      arrowMesh.rotation.x = -Math.PI / 2;
+      arrowMesh.position.y = 0.012;
+      const halo = new THREE.Mesh(
+        new THREE.RingGeometry(0.28, 0.34, 36),
+        new THREE.MeshBasicMaterial({ color: 0xffa366, transparent: true, opacity: 0.75, side: THREE.DoubleSide }),
+      );
+      halo.rotation.x = -Math.PI / 2;
+      halo.position.y = 0.006;
+      floorArrow.add(arrowMesh, halo);
+      floorArrow.visible = false;
+      scene.add(floorArrow);
+
       // ── Animation state ──────────────────────────────────────────────────
       // Dialogue mode: screen-space offset (pig floats in front, faces user)
       const DIALOGUE_OFFSET = new THREE.Vector3(0, -0.3, -1.5);
@@ -294,6 +349,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
       let walkStartTime     = -1;
       let walkTargetX       = 0;
       let walkTargetZ       = 0;
+      let floorArrowPlaced  = false;
       const WALK_DURATION   = 2.2;
       const TRIGGER_COOLDOWN = 8;
       let lastTriggerTime   = -TRIGGER_COOLDOWN;
@@ -304,6 +360,28 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
         const t      = performance.now() / 1000;
         const xrCam  = renderer.xr.getCamera();
         const camPos = xrCam.position;
+
+        if (avatarHiddenRef.current) {
+          bobGroup.visible = false;
+          floorArrow.visible = false;
+          shadowMesh.visible = false;
+          renderer.render(scene, camera);
+          return;
+        }
+
+        if (showFloorArrowRef.current && !floorArrowPlaced) {
+          xrCam.getWorldDirection(forward);
+          forward.y = 0;
+          if (forward.lengthSq() < 0.0001) forward.set(0, 0, -1);
+          forward.normalize();
+          const arrowX = camPos.x + forward.x * FLOOR_ARROW_DISTANCE;
+          const arrowZ = camPos.z + forward.z * FLOOR_ARROW_DISTANCE;
+          floorArrow.position.set(arrowX, 0.01, arrowZ);
+          floorArrow.rotation.set(0, FLOOR_ARROW_YAW, 0);
+          floorArrow.visible = true;
+          shadowMesh.visible = true;
+          floorArrowPlaced = true;
+        }
 
         // ── Walk-away mode ────────────────────────────────────────────────
         // Pig descends from floating position to floor and walks away, then
@@ -505,10 +583,21 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
     const lines = activeDialogue[config.animal];
     const line = lines?.[dialogueIndex];
     if (!line || line.text !== "") return;
-    walkingAwayRef.current = true;
-    guideModeRef.current = true;
-    setIsGuideMode(true);
-  }, [dialogueIndex, config.animal]);
+    setFarewellMsg(`🐾 ${ANIMAL_SPEAKER[config.animal]}: ${FAREWELL_LINES[config.animal]}`);
+    setPoofActive(true);
+    if (poofTimeoutRef.current !== null) window.clearTimeout(poofTimeoutRef.current);
+    poofTimeoutRef.current = window.setTimeout(() => {
+      setPoofActive(false);
+      setFarewellMsg(null);
+      avatarHiddenRef.current = true;
+      walkingAwayRef.current = false;
+      guideModeRef.current = false;
+      showFloorArrowRef.current = false;
+      setIsGuideMode(false);
+      setTriggerMsg(null);
+      poofTimeoutRef.current = null;
+    }, 900);
+  }, [dialogueIndex, config.animal, activeDialogue]);
 
   const advanceDialogue = useCallback(() => {
     const lines = activeDialogue[config.animal];
@@ -577,6 +666,33 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
               <div className="pointer-events-none absolute top-40 inset-x-0 flex justify-center px-6">
                 <div className="rounded-full border border-white/20 bg-black/75 px-5 py-2 text-sm text-white/90 backdrop-blur-sm">
                   {triggerMsg}
+                </div>
+              </div>
+            ) : null}
+
+            {farewellMsg ? (
+              <div className="pointer-events-none absolute top-24 inset-x-0 flex justify-center px-6">
+                <div className="rounded-full border border-[#ff6b00]/40 bg-black/80 px-5 py-2 text-sm text-[#ffd9bf] backdrop-blur-sm">
+                  {farewellMsg}
+                </div>
+              </div>
+            ) : null}
+
+            {poofActive ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="relative h-28 w-28">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <span
+                      key={i}
+                      className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ff6b00]/90 animate-ping"
+                      style={{
+                        transform: `translate(-50%, -50%) rotate(${i * 60}deg) translateY(-28px)`,
+                        animationDelay: `${i * 0.06}s`,
+                        animationDuration: "0.55s",
+                      }}
+                    />
+                  ))}
+                  <span className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ff6b00]/70 bg-[#ff6b00]/15 animate-ping" />
                 </div>
               </div>
             ) : null}
@@ -699,3 +815,8 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, ch
     </div>
   );
 }
+
+
+
+
+
