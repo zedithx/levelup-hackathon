@@ -8,7 +8,6 @@ type CheckpointClearedScreenProps = {
   challengeMessage: string;
   ctaLabel: string;
   onContinue: () => void;
-  onViewFinalDestination: () => void;
   onBackToLobby: () => void;
 };
 
@@ -19,7 +18,6 @@ export function CheckpointClearedScreen({
   challengeMessage,
   ctaLabel,
   onContinue,
-  onViewFinalDestination,
   onBackToLobby
 }: CheckpointClearedScreenProps) {
   return (
@@ -45,17 +43,9 @@ export function CheckpointClearedScreen({
           <PrimaryButton label={ctaLabel} onClick={onContinue} />
         </div>
         <button
-          className="anim-elevate btn-fit anim-fade-up mt-2 h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
-          onClick={onViewFinalDestination}
-          style={reveal(240)}
-          type="button"
-        >
-          [DEV] View ending carousel
-        </button>
-        <button
           className="anim-elevate btn-fit anim-fade-up mt-3 h-11 w-full text-sm font-bold text-white/25 transition-colors hover:text-white/55"
           onClick={onBackToLobby}
-          style={reveal(280)}
+          style={reveal(240)}
           type="button"
         >
           Back to lobby
@@ -64,4 +54,3 @@ export function CheckpointClearedScreen({
     </div>
   );
 }
-
