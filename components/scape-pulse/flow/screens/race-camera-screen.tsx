@@ -4,15 +4,13 @@ import { useEffect, useState } from "react";
 
 import { MindARImageScene } from "@/components/scape-pulse/mindar-image-scene";
 import type { RaceFlowConfig } from "@/components/scape-pulse/flow/types";
-import { BrandBar, PrimaryButton } from "@/components/scape-pulse/flow/ui";
+import { BrandBar } from "@/components/scape-pulse/flow/ui";
 import { reveal } from "@/components/scape-pulse/flow/utils";
 
 type RaceCameraScreenProps = {
   config: RaceFlowConfig;
   checkpointImagePlaceholder: string;
   checkpointTargetMindSrc: string;
-  dialogueStepIndex: number;
-  onAdvanceDialogue: () => void;
   onBackToLobby: () => void;
   onCheckpointMatched: (targetIndex: number) => void;
 };
@@ -21,13 +19,9 @@ export function RaceCameraScreen({
   config,
   checkpointImagePlaceholder,
   checkpointTargetMindSrc,
-  dialogueStepIndex,
-  onAdvanceDialogue,
   onBackToLobby,
   onCheckpointMatched
 }: RaceCameraScreenProps) {
-  const dialogueComplete = dialogueStepIndex >= config.dialogue.length;
-  const activeDialogue = config.dialogue[Math.min(dialogueStepIndex, config.dialogue.length - 1)];
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
@@ -42,11 +36,7 @@ export function RaceCameraScreen({
         <div className="anim-fade-up mb-3 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2" style={reveal(40)}>
           <p className="text-[0.68rem] tracking-[0.18em] text-[#00d4ff]">{config.checkpoint.name.toUpperCase()}</p>
           <p className="text-xs text-white/40">
-            {!isCameraReady
-              ? "Loading camera..."
-              : dialogueComplete
-                ? "Scanning for checkpoint match..."
-                : "Pingo briefing before scan"}
+            {isCameraReady ? "Scanning for checkpoint match..." : "Loading camera..."}
           </p>
         </div>
 
@@ -58,7 +48,7 @@ export function RaceCameraScreen({
               }
             }}
             onArReadyChange={setIsCameraReady}
-            scanningEnabled={isCameraReady && dialogueComplete}
+            scanningEnabled={isCameraReady}
             targetMindFileSrc={checkpointTargetMindSrc}
             targetIndexes={[0, 1, 2, 3]}
           />
@@ -77,7 +67,7 @@ export function RaceCameraScreen({
         </div>
 
         <div className="anim-fade-up mt-3 rounded-[14px] border border-white/10 bg-[#111] p-3" style={reveal(120)}>
-          <p className="mb-2 text-[0.7rem] tracking-[0.1em] text-white/30">CHECKPOINT IMAGE PLACEHOLDER</p>
+          <p className="mb-2 text-[0.7rem] tracking-[0.1em] text-white/30">CHECKPOINT IMAGE</p>
           <div className="flex items-center gap-3">
             <img
               alt={`${config.checkpoint.name} placeholder`}
@@ -85,7 +75,7 @@ export function RaceCameraScreen({
               src={checkpointImagePlaceholder}
             />
             <p className="text-xs leading-5 text-white/45">
-              Target preview currently uses placeholder image input. Replace this with your real checkpoint image later.
+              Point your camera at this image to unlock the checkpoint.
             </p>
           </div>
         </div>
@@ -96,7 +86,15 @@ export function RaceCameraScreen({
           style={reveal(160)}
           type="button"
         >
-          Exit race setup
+          Exit to lobby
+        </button>
+        <button
+          className="anim-elevate btn-fit anim-fade-up mt-1 h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
+          onClick={() => onCheckpointMatched(0)}
+          style={reveal(200)}
+          type="button"
+        >
+          [DEV] Skip checkpoint scan
         </button>
       </div>
     </div>

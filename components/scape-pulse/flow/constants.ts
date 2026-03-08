@@ -147,23 +147,22 @@ export const LOBBY_AVATAR_CHOICES = [
 export const RACE_FLOW_CONFIG: RaceFlowConfig = {
   mascotName: "Pingo",
   checkpoint: {
-    name: "Checkpoint 1",
+    name: "Mission 1: The Robot Ride",
     imagePlaceholderSrc:
       "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/examples/image-tracking/assets/card-example/card.png",
     targetMindFileSrc: "/station-references/stations.mind"
   },
   dialogue: [
     {
-      id: "pingo-intro",
+      id: "mission-1-riddle",
       speaker: "Pingo",
-      message: "Race start! I am Pingo, your AR guide. I will lead your squad checkpoint by checkpoint.",
-      ctaLabel: "Next"
+      message: "Go all the way down to B1. Find the white car with the orange robot arm sitting on the checkered floor.",
+      ctaLabel: "On my way!"
     },
     {
-      id: "checkpoint-1-brief",
+      id: "mission-1-scan",
       speaker: "Pingo",
-      message:
-        "First checkpoint is live. Point the camera at the checkpoint target image to match and unlock it.",
+      message: "Point your camera at the target image to confirm you've found it!",
       ctaLabel: "Start Scanning"
     }
   ]
