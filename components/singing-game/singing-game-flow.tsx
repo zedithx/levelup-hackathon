@@ -49,7 +49,7 @@ function extensionFromAudioType(mimeType: string) {
   return "webm";
 }
 
-export function SingingGameFlow() {
+export function SingingGameFlow({ onComplete }: { onComplete?: () => void } = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
   const [members, setMembers] = useState<DrawingGameMember[]>(DEFAULT_MEMBERS);
@@ -470,7 +470,7 @@ export function SingingGameFlow() {
       isAudioUploaded={isAudioUploaded}
       isAudioUploading={isAudioUploading}
       onBackToSetup={goToSetup}
-      onContinueToAr={() => router.push("/ar-experience")}
+      onContinueToAr={() => onComplete ? onComplete() : router.push("/ar-experience")}
       onRetryAudioUpload={() => {
         setHasAttemptedAudioUpload(true);
         void uploadRoundAudio();

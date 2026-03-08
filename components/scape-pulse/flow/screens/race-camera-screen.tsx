@@ -11,6 +11,7 @@ type RaceCameraScreenProps = {
   config: RaceFlowConfig;
   checkpointImagePlaceholder: string;
   checkpointTargetMindSrc: string;
+  expectedTargetIndex?: number;
   onBackToLobby: () => void;
   onCheckpointMatched: (targetIndex: number) => void;
 };
@@ -19,14 +20,26 @@ export function RaceCameraScreen({
   config,
   checkpointImagePlaceholder,
   checkpointTargetMindSrc,
+  expectedTargetIndex,
   onBackToLobby,
   onCheckpointMatched
 }: RaceCameraScreenProps) {
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [scanStatus, setScanStatus] = useState("Loading camera...");
 
   useEffect(() => {
     setIsCameraReady(false);
+    setScanStatus("Loading camera...");
   }, [checkpointTargetMindSrc]);
+
+  useEffect(() => {
+    if (!isCameraReady) {
+      setScanStatus("Loading camera...");
+      return;
+    }
+
+    setScanStatus("Scanning for checkpoint match...");
+  }, [isCameraReady]);
 
   return (
     <div className="anim-screen-in flex min-h-[100dvh] flex-col md:min-h-[852px]">
@@ -35,17 +48,22 @@ export function RaceCameraScreen({
       <div className="flex flex-1 flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3">
         <div className="anim-fade-up mb-3 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2" style={reveal(40)}>
           <p className="text-[0.68rem] tracking-[0.18em] text-[#00d4ff]">{config.checkpoint.name.toUpperCase()}</p>
-          <p className="text-xs text-white/40">
-            {isCameraReady ? "Scanning for checkpoint match..." : "Loading camera..."}
-          </p>
+          <p className="text-xs text-white/40">{scanStatus}</p>
         </div>
 
         <div className="anim-fade-up relative h-[56dvh] min-h-[360px] max-h-[640px]" style={reveal(80)}>
           <MindARImageScene
             onTargetFound={(targetIndex) => {
-              if (isCameraReady) {
-                onCheckpointMatched(targetIndex);
+              if (!isCameraReady) {
+                return;
               }
+
+              if (typeof expectedTargetIndex === "number" && targetIndex !== expectedTargetIndex) {
+                setScanStatus("Wrong checkpoint image. Keep scanning this station marker.");
+                return;
+              }
+
+              onCheckpointMatched(targetIndex);
             }}
             onArReadyChange={setIsCameraReady}
             scanningEnabled={isCameraReady}
@@ -78,7 +96,7 @@ export function RaceCameraScreen({
         </button>
         <button
           className="anim-elevate btn-fit anim-fade-up mt-1 h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
-          onClick={() => onCheckpointMatched(0)}
+          onClick={() => onCheckpointMatched(expectedTargetIndex ?? 0)}
           style={reveal(200)}
           type="button"
         >
