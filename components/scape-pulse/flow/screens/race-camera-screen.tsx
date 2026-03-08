@@ -11,6 +11,7 @@ type RaceCameraScreenProps = {
   checkpointImagePlaceholder: string;
   checkpointTargetMindSrc: string;
   expectedTargetIndex?: number;
+  missionBannerText?: string;
   onBackToLobby: () => void;
   onCheckpointMatched: (targetIndex: number) => void;
 };
@@ -19,6 +20,7 @@ export function RaceCameraScreen({
   config,
   checkpointImagePlaceholder,
   expectedTargetIndex,
+  missionBannerText,
   onBackToLobby,
   onCheckpointMatched
 }: RaceCameraScreenProps) {
@@ -47,9 +49,7 @@ export function RaceCameraScreen({
 
   const onPhotoPicked = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0];
-    if (!nextFile) {
-      return;
-    }
+    if (!nextFile) return;
 
     if (!nextFile.type.startsWith("image/")) {
       setStatusMessage("Please choose an image file.");
@@ -63,10 +63,7 @@ export function RaceCameraScreen({
   const clearPhoto = () => {
     setCheckpointPhoto(null);
     setStatusMessage("Take a photo of this checkpoint to continue.");
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const completeCheckpoint = () => {
@@ -74,7 +71,6 @@ export function RaceCameraScreen({
       setStatusMessage("Take a checkpoint photo before continuing.");
       return;
     }
-
     onCheckpointMatched(expectedTargetIndex ?? 0);
   };
 
@@ -87,6 +83,13 @@ export function RaceCameraScreen({
           <p className="text-[0.68rem] tracking-[0.18em] text-[#00d4ff]">{config.checkpoint.name.toUpperCase()}</p>
           <p className="text-xs text-white/40">{statusMessage}</p>
         </div>
+
+        {missionBannerText ? (
+          <div className="anim-fade-up mb-3 rounded-[14px] border border-[#ff6b00]/30 bg-[rgba(255,107,0,0.10)] px-3 py-2" style={reveal(60)}>
+            <p className="text-[0.62rem] tracking-[0.16em] text-[#ffb680]">MISSION RIDDLE</p>
+            <p className="mt-1 text-xs leading-5 text-[#ffe3cf]">{missionBannerText}</p>
+          </div>
+        ) : null}
 
         <div className="anim-fade-up overflow-hidden rounded-[20px] border border-white/10 bg-[#101010]" style={reveal(80)}>
           {photoPreviewUrl ? (
@@ -137,14 +140,7 @@ export function RaceCameraScreen({
           </button>
         </div>
 
-        <input
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={onPhotoPicked}
-          ref={fileInputRef}
-          type="file"
-        />
+        <input accept="image/*" capture="environment" className="hidden" onChange={onPhotoPicked} ref={fileInputRef} type="file" />
 
         <button
           className="anim-elevate btn-fit anim-fade-up mt-3 h-11 w-full rounded-[12px] border border-[#ff6b00]/40 bg-[#ff6b00]/20 text-sm font-bold text-[#ffd0b0] transition-colors hover:border-[#ff6b00]/70 hover:bg-[#ff6b00]/30 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/35"
