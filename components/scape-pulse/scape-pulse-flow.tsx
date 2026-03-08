@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ASSETS } from "@/components/scape-pulse/flow/constants";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArGuideScreen } from "@/components/scape-pulse/ar-guide-screen";
@@ -21,7 +22,6 @@ import { RaceCameraScreen } from "@/components/scape-pulse/flow/screens/race-cam
 import type { FlowScreen, TeamMember } from "@/components/scape-pulse/flow/types";
 
 // Runtime Three.js + OrbitControls loaded dynamically to avoid SSR hydration mismatches
-/* eslint-disable @typescript-eslint/no-explicit-any */
 let THREE = null as any as Awaited<typeof import("three")>;
 let OrbitControls = null as any as new (...a: any[]) => any;
 
@@ -418,8 +418,8 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
       controls.enableDamping = true;
       controls.dampingFactor = 0.06;
       controls.target.set(0, 1.1, 0);
-      controls.minDistance = 2;
-      controls.maxDistance = 10;
+      controls.minDistance = 1.2;
+      controls.maxDistance = 12;
       controls.update();
 
       scene.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
@@ -434,6 +434,33 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
       let avatarGroup = new THREE.Group();
       scene.add(avatarGroup);
 
+      const fitAvatarToView = () => {
+        const box = new THREE.Box3().setFromObject(avatarGroup);
+        if (box.isEmpty()) return;
+
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        // Fit using both vertical and horizontal FOV; keeps avatar centered on all aspect ratios.
+        const vFov = THREE.MathUtils.degToRad(camera.fov);
+        const hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * camera.aspect);
+        const fitHeight = (size.y * 0.5) / Math.tan(vFov * 0.5);
+        const fitWidth = (size.x * 0.5) / Math.tan(hFov * 0.5);
+        const distance = Math.max(fitHeight, fitWidth, size.z * 0.7) * 1.2;
+
+        // Slight upward target bias keeps the body centered instead of appearing too high.
+        const targetY = center.y + size.y * 0.06;
+        controls.target.set(center.x, targetY, center.z);
+        camera.position.set(center.x, targetY + size.y * 0.02, center.z + distance);
+
+        controls.minDistance = Math.max(0.8, distance * 0.5);
+        controls.maxDistance = distance * 2.5;
+        camera.near = Math.max(0.01, distance / 100);
+        camera.far = Math.max(50, distance * 10);
+        camera.updateProjectionMatrix();
+        controls.update();
+      };
+
       rebuildRef.current = (cfg: AvatarConfig) => {
         scene.remove(avatarGroup);
         avatarGroup.traverse((child: any) => {
@@ -441,6 +468,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
         });
         avatarGroup = buildAnimalAvatarLocal(cfg);
         scene.add(avatarGroup);
+        fitAvatarToView();
       };
 
       rebuildRef.current({ animal: animalType, bodyColor, accentColor, eyeColor, markingColor });
@@ -451,6 +479,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
         renderer.setSize(container.clientWidth, container.clientHeight, false);
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
+        fitAvatarToView();
       }
       const ro = new ResizeObserver(resize);
       ro.observe(canvas.parentElement!);
@@ -529,8 +558,12 @@ export function ScapePulseFlow() {
   const [expandedAddTeammate, setExpandedAddTeammate] = useState(false);
   const [newTeammateAvatar, setNewTeammateAvatar] = useState("🐙");
   const [newTeammateName, setNewTeammateName] = useState("Tania");
-  const checkpointImagePlaceholder = RACE_FLOW_CONFIG.checkpoint.imagePlaceholderSrc;
-  const checkpointTargetMindSrc = RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc;
+  const [checkpointImagePlaceholder] = useState(
+    RACE_FLOW_CONFIG.checkpoint.imagePlaceholderSrc
+  );
+  const [checkpointTargetMindSrc] = useState(
+    RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc
+  );
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
   const [checkpointCleared, setCheckpointCleared] = useState(false);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
