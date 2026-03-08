@@ -577,7 +577,7 @@ const CHECKPOINT_TRANSITIONS: Record<"ar-race" | "ar-race-dance" | "ar-race-draw
     nextScreen: "dance"
   },
   "ar-race-drawing": {
-    checkpointName: "Mission 4: The Monster Pile",
+    checkpointName: "Mission 3: The Monster Pile",
     foundMessage: "Monster checkpoint confirmed. You made it to the drawing station.",
     challengeMessage: "Drawing challenge unlocked. Create your team monster artwork.",
     ctaLabel: "Start Drawing Challenge",
@@ -962,7 +962,7 @@ export function ScapePulseFlow() {
             showConfetti={true}
             autoStart
             checkpoint={{
-              name: "Mission 4: The Monster Pile",
+              name: "Mission 3: The Monster Pile",
               hint: buttPhase.intro[0],
             }}
             dialogueLines={[...butterflyPhase.success, ...buttPhase.intro]}
@@ -980,7 +980,7 @@ export function ScapePulseFlow() {
               ...effectiveRaceConfig,
               checkpoint: {
                 ...effectiveRaceConfig.checkpoint,
-                name: "Mission 4: The Monster Pile"
+                name: "Mission 3: The Monster Pile"
               }
             }}
             expectedTargetIndex={CHECKPOINT_TARGET_INDEX.monster}
@@ -1001,7 +1001,7 @@ export function ScapePulseFlow() {
             showConfetti={true}
             autoStart
             checkpoint={{
-              name: "Mission 3: The Piano Balcony",
+              name: "Mission 4: The Piano Balcony",
               hint: balconyPhase.intro[0],
             }}
             dialogueLines={[...buttPhase.success, ...balconyPhase.intro]}
@@ -1022,12 +1022,12 @@ export function ScapePulseFlow() {
             showConfetti={true}
             autoStart
             checkpoint={{
-              name: "Grand Finale: The Gallery",
-              hint: "Head to the gallery â€” your squad's memories are waiting for you!",
+              name: "Mission 5: The Gallery",
+              hint: "Head to Level 5 Gallery — your squad's memories are waiting for you!",
             }}
             dialogueLines={[
               ...balconyPhase.success,
-              "Head to the gallery now â€” your squad's epic journey is immortalised there. Let's celebrate!",
+              "Head to Level 5 Gallery now — your squad's epic journey is immortalised there. Let's celebrate!",
             ]}
             onSkip={() => { clearSession(); setScreenState("final-destination-carousel"); }}
             onExit={() => { clearSession(); setScreenState("final-destination-carousel"); }}
@@ -1041,6 +1041,7 @@ export function ScapePulseFlow() {
     </div>
   );
 }
+
 
 
 
