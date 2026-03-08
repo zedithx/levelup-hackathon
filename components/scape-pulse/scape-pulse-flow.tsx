@@ -411,15 +411,17 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#0d0d1a");
 
-      const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-      camera.position.set(0, 2.2, 8);
+      // All animals span roughly y=0 (feet) to y=2.2 (ears/top).
+      // Aim the camera at y=1.1 — the true vertical midpoint.
+      const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+      camera.position.set(0, 1.1, 5.5);
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.06;
-      controls.target.set(0, 0.8, 0);
-      controls.minDistance = 3;
-      controls.maxDistance = 15;
+      controls.target.set(0, 1.1, 0);
+      controls.minDistance = 2;
+      controls.maxDistance = 10;
       controls.update();
 
       scene.add(new THREE.HemisphereLight(0x8899cc, 0x664422, 0.45));
@@ -430,12 +432,6 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
       fill.position.set(-5, 2, 3); scene.add(fill);
       scene.add(new THREE.DirectionalLight(0xffffff, 0.28)).position.set(0, 5, -6);
 
-      const ground = new THREE.Mesh(
-        new THREE.CircleGeometry(4.5, 72),
-        new THREE.MeshStandardMaterial({ color: 0x181828, roughness: 0.95 })
-      );
-      ground.rotation.x = -Math.PI / 2; ground.position.y = -0.26; ground.receiveShadow = true;
-      scene.add(ground);
 
       let avatarGroup = new THREE.Group();
       scene.add(avatarGroup);
@@ -500,7 +496,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
         <p className="mb-1 text-center text-sm text-white/50">Customise your mascot</p>
         <p className="mb-3 text-center text-xs text-white/25">Drag to rotate · Scroll to zoom</p>
 
-        <div className="mb-4 w-full overflow-hidden rounded-2xl" style={{ height: "220px" }}>
+        <div className="mb-4 mx-auto w-full max-w-[300px] aspect-square overflow-hidden rounded-2xl">
           <canvas ref={canvasRef} className="block w-full h-full" />
         </div>
 
@@ -542,6 +538,7 @@ export function ScapePulseFlow() {
     RACE_FLOW_CONFIG.checkpoint.targetMindFileSrc
   );
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
+  const [checkpointCleared, setCheckpointCleared] = useState(false);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   /** RACE_FLOW_CONFIG merged with the player's chosen mascot at runtime. */
@@ -621,7 +618,10 @@ export function ScapePulseFlow() {
     setNewTeammateName("");
   };
 
-  const onCheckpointMatched = () => setScreen("checkpoint-cleared");
+  const onCheckpointMatched = () => {
+    setCheckpointCleared(true);
+    setScreen("checkpoint-cleared");
+  };
   const openFinalDestinationCarousel = () => setScreen("final-destination-carousel");
 
   const backToLobby = () => setScreen("lobby");
@@ -634,7 +634,7 @@ export function ScapePulseFlow() {
 
   useEffect(() => {
     if (screen !== "checkpoint-cleared") return;
-    const id = window.setTimeout(() => setScreen("final-destination-carousel"), 1800);
+    const id = window.setTimeout(() => setScreen("ar-guide"), 1800);
     return () => window.clearTimeout(id);
   }, [screen]);
 
@@ -716,7 +716,16 @@ export function ScapePulseFlow() {
         {screen === "ar-guide" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}
-            onExit={() => setScreen("ar-race")}
+            showConfetti={checkpointCleared}
+            checkpoint={{
+              name: effectiveRaceConfig.checkpoint.name,
+              hint: effectiveRaceConfig.dialogue[0]?.message ?? "Follow your guide to the destination",
+            }}
+            onSkip={() => setScreen("ar-race")}
+            onExit={() => {
+              setCheckpointCleared(false);
+              setScreen("ar-race");
+            }}
           />
         ) : null}
 

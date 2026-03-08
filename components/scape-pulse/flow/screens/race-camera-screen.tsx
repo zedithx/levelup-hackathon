@@ -88,6 +88,14 @@ export function RaceCameraScreen({
         >
           Exit to lobby
         </button>
+        <button
+          className="anim-elevate btn-fit anim-fade-up mt-1 h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
+          onClick={() => onCheckpointMatched(0)}
+          style={reveal(200)}
+          type="button"
+        >
+          [DEV] Skip checkpoint scan
+        </button>
       </div>
     </div>
   );

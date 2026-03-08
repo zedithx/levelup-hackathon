@@ -16,7 +16,7 @@
  *   see its face while it leads them.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildAnimalAvatar, ensureThree, ANIMAL_SPEAKER, type AvatarConfig, type AnimalType } from "./avatar-builders";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,7 +28,52 @@ type ArStatus = "checking" | "unsupported" | "idle" | "starting" | "active" | "e
 type Props = {
   config: AvatarConfig;
   onExit: () => void;
+  onSkip: () => void;
+  showConfetti?: boolean;
+  checkpoint?: { name: string; hint: string };
 };
+
+// ── Confetti overlay ──────────────────────────────────────────────────────────
+
+const CONFETTI_COLORS = ["#ff6b00", "#00d4ff", "#ff3399", "#ffd700", "#00ff88", "#ffffff"];
+
+function ConfettiOverlay() {
+  const pieces = useMemo(() =>
+    Array.from({ length: 60 }, (_, i) => ({
+      id: i,
+      left: `${(i * 1.7 + 3) % 100}%`,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      delay: `${(i * 0.08) % 3}s`,
+      duration: `${2.5 + (i % 7) * 0.3}s`,
+      size: `${7 + (i % 5) * 2}px`,
+      isCircle: i % 3 !== 0,
+    }))
+  , []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            position: "absolute",
+            top: "-20px",
+            left: p.left,
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: p.isCircle ? "50%" : "2px",
+            animationName: "confetti-fall",
+            animationDuration: p.duration,
+            animationDelay: p.delay,
+            animationTimingFunction: "ease-in",
+            animationFillMode: "forwards",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // ── Dialogue & SFX ───────────────────────────────────────────────────────────
 
@@ -60,6 +105,12 @@ const ANIMAL_DIALOGUE: Record<AnimalType, DialogueLine[]> = {
   ],
 };
 
+/** Dialogue used when returning to AR guide after a checkpoint is cleared. */
+const POST_CHECKPOINT_DIALOGUE: Record<AnimalType, DialogueLine[]> = {
+  pig:     [{ sfx: "grunt",    text: "Look at that unique specimen! My eye for style is never wrong. Now keep those trotters moving — the next checkpoint won't find itself!" }, { sfx: "clink", text: "" }],
+  dog:     [{ sfx: "panting", text: "Look at that unique specimen! My eye for style is never wrong. Good work, Recruit — now back on the hunt!" }, { sfx: "bark-fade", text: "" }],
+  chicken: [{ sfx: "bagock",  text: "Look at that unique specimen! My eye for style is never wrong. BAWK! Don't let it go to your head — we've got more checkpoints to crack!" }, { sfx: "cluck-retreat", text: "" }],
+};
 
 function playSfx(type: SfxType): void {
   if (typeof window === "undefined") return;
@@ -133,7 +184,7 @@ const LERP_ALPHA = 0.03;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ArGuideScreen({ config, onExit }: Props) {
+export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, checkpoint }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sessionRef = useRef<any>(null);
@@ -145,6 +196,7 @@ export function ArGuideScreen({ config, onExit }: Props) {
 
   const [status, setStatus] = useState<ArStatus>("checking");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confettiActive, setConfettiActive] = useState(false);
   const [dialogueIndex, setDialogueIndex] = useState(-1);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
   const [isGuideMode, setIsGuideMode] = useState(false);
@@ -422,19 +474,35 @@ export function ArGuideScreen({ config, onExit }: Props) {
     sessionRef.current?.end().catch(() => {});
   }, []);
 
+  // When returning after a checkpoint, skip the pre-session screen and launch AR immediately
+  useEffect(() => {
+    if (showConfetti && status === "idle") startAR();
+  }, [showConfetti, status, startAR]);
+
+  // Show confetti for 3 s once AR becomes active after a checkpoint
+  useEffect(() => {
+    if (!showConfetti || status !== "active") return;
+    setConfettiActive(true);
+    const tid = setTimeout(() => setConfettiActive(false), 3000);
+    return () => clearTimeout(tid);
+  }, [showConfetti, status]);
+
+  const activeDialogue = showConfetti ? POST_CHECKPOINT_DIALOGUE : ANIMAL_DIALOGUE;
+
   // Start first dialogue line when AR session becomes active
   useEffect(() => {
     if (status !== "active") return;
-    const lines = ANIMAL_DIALOGUE[config.animal];
+    const lines = activeDialogue[config.animal];
     if (!lines?.length) return;
     playSfx(lines[0].sfx);
     setDialogueIndex(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, config.animal]);
 
   // Handle the exit/clink line (text === "") — trigger walk-away in the XR loop
   useEffect(() => {
     if (dialogueIndex < 0) return;
-    const lines = ANIMAL_DIALOGUE[config.animal];
+    const lines = activeDialogue[config.animal];
     const line = lines?.[dialogueIndex];
     if (!line || line.text !== "") return;
     walkingAwayRef.current = true;
@@ -443,13 +511,13 @@ export function ArGuideScreen({ config, onExit }: Props) {
   }, [dialogueIndex, config.animal]);
 
   const advanceDialogue = useCallback(() => {
-    const lines = ANIMAL_DIALOGUE[config.animal];
+    const lines = activeDialogue[config.animal];
     if (!lines) return;
     const next = dialogueIndex + 1;
     if (next >= lines.length) return;
     playSfx(lines[next].sfx);
     setDialogueIndex(next);
-  }, [dialogueIndex, config.animal]);
+  }, [dialogueIndex, config.animal, activeDialogue]);
 
   // Auto-dismiss meme pop-up after 4 s
   useEffect(() => {
@@ -458,10 +526,10 @@ export function ArGuideScreen({ config, onExit }: Props) {
     return () => clearTimeout(tid);
   }, [triggerMsg]);
 
-  const currentLine = ANIMAL_DIALOGUE[config.animal]?.[dialogueIndex];
+  const currentLine = activeDialogue[config.animal]?.[dialogueIndex];
   const isLastTextLine =
     dialogueIndex >= 0 &&
-    ANIMAL_DIALOGUE[config.animal]?.[dialogueIndex + 1]?.text === "";
+    activeDialogue[config.animal]?.[dialogueIndex + 1]?.text === "";
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -476,6 +544,8 @@ export function ArGuideScreen({ config, onExit }: Props) {
 
       {/* DOM overlay – visible on top of the AR camera feed */}
       <div ref={overlayRef} className="fixed inset-0 pointer-events-none z-10">
+        {/* Confetti must live inside the domOverlay root to be composited by WebXR */}
+        {confettiActive && <ConfettiOverlay />}
         {status === "active" && (
           <>
             {/* Speech bubble – shown while there is text to display */}
@@ -514,26 +584,29 @@ export function ArGuideScreen({ config, onExit }: Props) {
             {/* Checkpoint 1 reminder – visible throughout guide mode */}
             {isGuideMode && (
               <div className="pointer-events-none absolute top-6 inset-x-4 flex justify-center">
-                <div className="flex w-full max-w-[360px] items-center gap-3 rounded-2xl border border-[#ff6b00]/30 bg-black/75 px-4 py-3 backdrop-blur-sm">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(255,107,0,0.2)] text-xl">
-                    📍
+                <div className="w-full max-w-[360px] rounded-2xl border border-[#ff6b00]/30 bg-black/75 px-4 py-3 backdrop-blur-sm">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <p className="text-[0.6rem] font-bold tracking-[0.18em] text-[#ff6b00]">{checkpoint?.name ?? "CHECKPOINT 1"}</p>
+                    <div className="shrink-0 rounded-full bg-[#ff6b00] px-2 py-0.5 text-[0.6rem] font-bold text-white">
+                      ACTIVE
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[0.6rem] font-bold tracking-[0.18em] text-[#ff6b00]">CHECKPOINT 1</p>
-                    <p className="truncate text-sm font-semibold text-white">Basement Level 1</p>
-                    <p className="text-[0.7rem] text-white/50">Follow your guide to the destination</p>
-                  </div>
-                  <div className="ml-auto shrink-0 rounded-full bg-[#ff6b00] px-2 py-0.5 text-[0.6rem] font-bold text-white">
-                    ACTIVE
-                  </div>
+                  <p className="text-[0.72rem] leading-5 text-white/70">{checkpoint?.hint ?? "Follow your guide to the destination"}</p>
                 </div>
               </div>
             )}
 
-            {/* Exit button – always visible once AR is active */}
-            <div className="pointer-events-auto absolute bottom-8 inset-x-0 flex justify-center px-6">
+            {/* Bottom controls – always visible once AR is active */}
+            <div className="pointer-events-auto absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 px-6">
               <button
-                className="h-12 w-full max-w-[280px] rounded-2xl bg-[rgba(255,107,0,0.85)] font-bold text-white backdrop-blur-sm"
+                className="h-12 w-full max-w-[280px] rounded-2xl bg-[#ff6b00] font-bold text-white backdrop-blur-sm"
+                onClick={() => { stopAR(); onSkip(); }}
+                type="button"
+              >
+                I've arrived at Checkpoint 1 →
+              </button>
+              <button
+                className="h-10 w-full max-w-[280px] rounded-2xl bg-black/50 text-sm font-bold text-white/60 backdrop-blur-sm"
                 onClick={stopAR}
                 type="button"
               >
@@ -565,7 +638,14 @@ export function ArGuideScreen({ config, onExit }: Props) {
                 WebXR AR requires Android Chrome or iOS Safari 16+. Try on a supported device.
               </p>
               <button
-                className="h-12 w-full max-w-[280px] rounded-2xl bg-white/10 text-sm font-bold text-white/60"
+                className="mb-3 h-12 w-full max-w-[280px] rounded-2xl bg-[#ff6b00] font-bold text-white"
+                onClick={onSkip}
+                type="button"
+              >
+                I've arrived at Checkpoint 1 →
+              </button>
+              <button
+                className="h-10 w-full max-w-[280px] text-sm font-bold text-white/30"
                 onClick={onExit}
                 type="button"
               >
@@ -593,6 +673,13 @@ export function ArGuideScreen({ config, onExit }: Props) {
                 type="button"
               >
                 START AR GUIDE
+              </button>
+              <button
+                className="mb-2 h-11 w-full max-w-[320px] rounded-2xl border border-white/10 bg-white/5 text-sm font-bold text-white/70"
+                onClick={onSkip}
+                type="button"
+              >
+                I've arrived at Checkpoint 1 →
               </button>
               <button
                 className="h-10 w-full max-w-[320px] text-sm font-bold text-white/30"
