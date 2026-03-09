@@ -1,5 +1,6 @@
 import { ENDING_CAROUSEL_DEFAULT_MEDIA } from "@/components/scape-pulse/flow/constants";
 import type { EndingCarouselMedia } from "@/components/scape-pulse/flow/types";
+import { readSharedTeamParticipants } from "@/lib/team-participants";
 
 const STORAGE_KEY = "levelup.memory-assets.v1";
 const MEMORY_EVENT = "levelup-memory-assets-updated";
@@ -232,12 +233,24 @@ export function saveFinalSongMemoryAsset({
 
 export function buildEndingCarouselMediaFromStoredAssets(): EndingCarouselMedia {
   const stored = readStoredAssets();
+  const sharedParticipantNames = readSharedTeamParticipants()
+    .map((participant) => participant.name.trim())
+    .filter(Boolean);
+  const fallbackDrawings = stored.drawings.length
+    ? stored.drawings
+    : ENDING_CAROUSEL_DEFAULT_MEDIA.drawings.map((drawing, index) => ({
+      ...drawing,
+      authorName: sharedParticipantNames[index] || drawing.authorName
+    }));
+  const fallbackVoiceContributors = sharedParticipantNames.length
+    ? sharedParticipantNames
+    : ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.voiceContributors;
 
   return {
     firstLocationImageSrc: stored.selfieImageSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.firstLocationImageSrc,
     secondLocationDanceVideoSrc:
       stored.danceVideoSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.secondLocationDanceVideoSrc,
-    drawings: stored.drawings.length ? stored.drawings : ENDING_CAROUSEL_DEFAULT_MEDIA.drawings,
+    drawings: fallbackDrawings,
     drawingStory: {
       actualWord: stored.drawingActualWord || ENDING_CAROUSEL_DEFAULT_MEDIA.drawingStory.actualWord,
       finalWord: stored.drawingFinalWord || ENDING_CAROUSEL_DEFAULT_MEDIA.drawingStory.finalWord
@@ -247,7 +260,7 @@ export function buildEndingCarouselMediaFromStoredAssets(): EndingCarouselMedia 
       songTitle: stored.finalSongTitle || ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.songTitle,
       voiceContributors: stored.finalSongVoiceContributors.length
         ? stored.finalSongVoiceContributors
-        : ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.voiceContributors,
+        : fallbackVoiceContributors,
       backgroundTrackSrc:
         stored.finalSongBackgroundTrackSrc || ENDING_CAROUSEL_DEFAULT_MEDIA.finalSong.backgroundTrackSrc
     }

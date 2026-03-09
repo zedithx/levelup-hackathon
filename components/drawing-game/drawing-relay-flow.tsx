@@ -10,6 +10,7 @@ import { FlowShell, Panel, PrimaryButton, ProgressBar } from "@/components/drawi
 import { cn } from "@/components/drawing-game/flow/utils";
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/drawing-game/sketch-canvas";
 import { saveDrawingMemoryAssets } from "@/lib/memory-assets";
+import { readSharedTeamParticipants } from "@/lib/team-participants";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const SECRET_WORD_PLACEHOLDER = "Moonwalk";
@@ -29,6 +30,20 @@ const DEFAULT_LINEUP: RelayPlayer[] = DEFAULT_MEMBERS.map((member) => ({
   name: member.name,
   emoji: member.emoji
 }));
+
+function buildInitialLineup() {
+  const sharedParticipants = readSharedTeamParticipants();
+
+  if (sharedParticipants.length < 2) {
+    return DEFAULT_LINEUP.map((player) => ({ ...player }));
+  }
+
+  return sharedParticipants.map((participant, index) => ({
+    emoji: participant.avatar || DEFAULT_LINEUP[index % DEFAULT_LINEUP.length]?.emoji || "🎯",
+    id: participant.id,
+    name: participant.name.trim() || `Player ${index + 1}`
+  }));
+}
 
 type RelayScreen =
   | { kind: "setup" }
@@ -113,12 +128,8 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
 
 export function DrawingRelayFlow() {
   const router = useRouter();
-  const [draftPlayers, setDraftPlayers] = useState<RelayPlayer[]>(() =>
-    DEFAULT_LINEUP.map((player) => ({ ...player }))
-  );
-  const [activePlayers, setActivePlayers] = useState<RelayPlayer[]>(() =>
-    DEFAULT_LINEUP.map((player) => ({ ...player }))
-  );
+  const [draftPlayers, setDraftPlayers] = useState<RelayPlayer[]>(buildInitialLineup);
+  const [activePlayers, setActivePlayers] = useState<RelayPlayer[]>(buildInitialLineup);
   const [screen, setScreen] = useState<RelayScreen>({ kind: "setup" });
   const [drawings, setDrawings] = useState<RelayDrawing[]>([]);
   const [guessInput, setGuessInput] = useState("");
