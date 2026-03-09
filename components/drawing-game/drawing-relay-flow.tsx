@@ -126,7 +126,7 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
   return new File([new Uint8Array(byteNumbers)], fileName, { type: mimeType });
 }
 
-export function DrawingRelayFlow() {
+export function DrawingRelayFlow({ onComplete }: { onComplete?: () => void } = {}) {
   const router = useRouter();
   const [draftPlayers, setDraftPlayers] = useState<RelayPlayer[]>(buildInitialLineup);
   const [activePlayers, setActivePlayers] = useState<RelayPlayer[]>(buildInitialLineup);
@@ -722,7 +722,7 @@ export function DrawingRelayFlow() {
           </Panel>
 
           <div className="mt-4">
-            <PrimaryButton label="Continue to AR" onClick={() => router.push("/ar-experience")} />
+            <PrimaryButton label="Continue to AR" onClick={() => onComplete ? onComplete() : router.push("/ar-experience")} />
           </div>
         </div>
       ) : null}

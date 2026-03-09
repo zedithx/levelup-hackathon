@@ -63,7 +63,7 @@ function extensionFromVideoType(mimeType: string) {
   return "webm";
 }
 
-export function DanceFlow() {
+export function DanceFlow({ onComplete, onBack }: { onComplete?: () => void; onBack?: () => void } = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<DanceScreen>("watch");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -566,8 +566,17 @@ export function DanceFlow() {
                 </ul>
               </Panel>
 
-              <div className="mt-auto">
+              <div className="mt-auto space-y-2">
                 <PrimaryButton label="Ready to record" onClick={() => setScreen("record")} />
+                {onBack ? (
+                  <button
+                    className="h-9 w-full rounded-[10px] border border-dashed border-white/10 text-xs font-bold text-white/20 transition-colors hover:text-white/40"
+                    onClick={onBack}
+                    type="button"
+                  >
+                    ← Back to previous station
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -698,7 +707,7 @@ export function DanceFlow() {
               </Panel>
 
               <div className="mt-auto space-y-3">
-                <PrimaryButton label="Continue to AR" onClick={() => router.push("/ar-experience")} />
+                <PrimaryButton label="Continue to AR" onClick={() => onComplete ? onComplete() : router.push("/ar-experience")} />
                 <GhostButton className="h-10 w-full" label="Review current playback" onClick={() => setScreen("review")} />
               </div>
             </div>

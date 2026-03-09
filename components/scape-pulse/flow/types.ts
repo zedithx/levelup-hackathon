@@ -12,7 +12,17 @@ export type FlowScreen =
   | "ar-guide"
   | "camera-permission"
   | "ar-race"
+  | "ar-race-dance"
+  | "ar-race-drawing"
   | "checkpoint-cleared"
+  | "selfie"
+  | "ar-guide-to-dance"
+  | "dance"
+  | "ar-guide-to-drawing"
+  | "drawing"
+  | "ar-guide-to-singing"
+  | "singing"
+  | "ar-guide-to-celebration"
   | "final-destination-carousel";
 
 export type OnboardingSlide = {

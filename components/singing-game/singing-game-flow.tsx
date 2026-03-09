@@ -506,7 +506,7 @@ export function SingingGameFlow() {
       isAudioUploaded={isAudioUploaded}
       isAudioUploading={isAudioUploading}
       onBackToSetup={goToSetup}
-      onContinueToAr={() => router.push("/ar-experience")}
+      onContinueToAr={() => onComplete ? onComplete() : router.push("/ar-experience")}
       onRetryAudioUpload={() => {
         setHasAttemptedAudioUpload(true);
         void uploadRoundAudio();
