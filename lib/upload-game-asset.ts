@@ -66,16 +66,14 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
     throw new Error("Upload failed: missing signed upload data from server.");
   }
 
-  const directUploadBody = new FormData();
-  directUploadBody.append("cacheControl", "31536000");
-  directUploadBody.append("", file);
-
   const directUploadResponse = await fetch(result.signedUrl, {
     method: "PUT",
     headers: {
+      "cache-control": "31536000",
+      "content-type": file.type || "application/octet-stream",
       "x-upsert": "true"
     },
-    body: directUploadBody
+    body: file
   });
 
   if (!directUploadResponse.ok) {

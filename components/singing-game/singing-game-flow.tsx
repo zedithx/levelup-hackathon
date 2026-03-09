@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   DEFAULT_MEMBERS,
+  MAX_MEMBERS,
+  MEMBER_EMOJI_POOL,
+  MIN_MEMBERS,
   ORDER_REVEAL_MS,
   PHASE_TICK_MS,
   PRE_GAME_COUNTDOWN_SEC,
@@ -20,7 +23,10 @@ import { TurnScreen } from "@/components/singing-game/flow/screens/turn-screen";
 import type { DrawingGameMember, DrawingGameScreen } from "@/components/singing-game/flow/types";
 import { activeLyricIndex, buildTurns, lyricLinesForTurn } from "@/components/singing-game/flow/utils";
 import { saveFinalSongMemoryAsset } from "@/lib/memory-assets";
+import { readSharedTeamParticipants } from "@/lib/team-participants";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
+
+const AUDIO_RECORDING_BITS_PER_SECOND = 128_000;
 
 function supportedAudioRecorderOptions() {
   if (typeof MediaRecorder === "undefined") {
@@ -30,7 +36,12 @@ function supportedAudioRecorderOptions() {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
   const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
 
-  return mimeType ? { mimeType } : undefined;
+  return mimeType
+    ? {
+      audioBitsPerSecond: AUDIO_RECORDING_BITS_PER_SECOND,
+      mimeType
+    }
+    : undefined;
 }
 
 function extensionFromAudioType(mimeType: string) {
@@ -49,10 +60,27 @@ function extensionFromAudioType(mimeType: string) {
   return "webm";
 }
 
+const MEMBER_ACCENT_POOL = DEFAULT_MEMBERS.map((member) => member.accent);
+
+function buildInitialMembers(): DrawingGameMember[] {
+  const sharedParticipants = readSharedTeamParticipants();
+
+  if (sharedParticipants.length < MIN_MEMBERS) {
+    return DEFAULT_MEMBERS.map((member) => ({ ...member }));
+  }
+
+  return sharedParticipants.slice(0, MAX_MEMBERS).map((participant, index) => ({
+    accent: MEMBER_ACCENT_POOL[index % MEMBER_ACCENT_POOL.length] || "#ff6b00",
+    emoji: participant.avatar || MEMBER_EMOJI_POOL[index % MEMBER_EMOJI_POOL.length] || "🎤",
+    id: participant.id,
+    name: participant.name.trim() || `Player ${index + 1}`
+  }));
+}
+
 export function SingingGameFlow() {
   const router = useRouter();
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
-  const [members, setMembers] = useState<DrawingGameMember[]>(DEFAULT_MEMBERS);
+  const [members, setMembers] = useState<DrawingGameMember[]>(buildInitialMembers);
   const [countdownSec, setCountdownSec] = useState(PRE_GAME_COUNTDOWN_SEC);
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [phaseRemainingMs, setPhaseRemainingMs] = useState(0);
@@ -75,6 +103,7 @@ export function SingingGameFlow() {
     [members]
   );
   const activeTurn = turns[currentTurnIndex] ?? null;
+  const trimmedTrackDurationSec = turns.length ? turns[turns.length - 1].endSec : 0;
 
   const lyricsForActiveTurn = useMemo(() => {
     if (!activeTurn) {
@@ -140,7 +169,13 @@ export function SingingGameFlow() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const recorder = new MediaRecorder(stream, supportedAudioRecorderOptions());
+      let recorder: MediaRecorder;
+
+      try {
+        recorder = new MediaRecorder(stream, supportedAudioRecorderOptions());
+      } catch {
+        recorder = new MediaRecorder(stream);
+      }
 
       audioStreamRef.current = stream;
       audioRecorderRef.current = recorder;
@@ -178,7 +213,7 @@ export function SingingGameFlow() {
         stopAudioStream();
       };
 
-      recorder.start(250);
+      recorder.start(1000);
       setRecordingError(null);
       setIsCapturingAudio(true);
     } catch {
@@ -255,8 +290,8 @@ export function SingingGameFlow() {
         assetType: "singing",
         file: roundAudioFile
       });
-      const voiceContributors = members
-        .map((member) => member.name.trim())
+      const voiceContributors = turns
+        .map((turn) => turn.member.name.trim())
         .filter(Boolean);
 
       saveFinalSongMemoryAsset({
@@ -274,7 +309,7 @@ export function SingingGameFlow() {
     } finally {
       setIsAudioUploading(false);
     }
-  }, [members, roundAudioFile]);
+  }, [roundAudioFile, turns]);
 
   const updateMemberName = useCallback((memberId: string, value: string) => {
     setMembers((currentMembers) =>
@@ -445,6 +480,7 @@ export function SingingGameFlow() {
         }}
         onTrackEnded={() => setHasCompletedGuideListen(true)}
         trackArtist={SINGING_GAME_SONG.artist}
+        trackDurationSec={trimmedTrackDurationSec}
         trackSrc={SINGING_GAME_TRACK_SRC}
         trackTitle={SINGING_GAME_SONG.title}
       />

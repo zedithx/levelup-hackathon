@@ -10,7 +10,7 @@ import { FlowShell, Panel, PrimaryButton } from "@/components/drawing-game/flow/
 import { saveSelfieMemoryAsset } from "@/lib/memory-assets";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
 
-const VERIFY_DELAY_MS = 1800;
+const VERIFY_DELAY_MS = 400;
 const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024;
 
 type SelfieVerificationState = "idle" | "verifying" | "success" | "error";

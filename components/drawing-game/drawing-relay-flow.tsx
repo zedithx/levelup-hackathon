@@ -16,6 +16,7 @@ const SECRET_WORD_PLACEHOLDER = "Moonwalk";
 const LOOK_DURATION_SEC = 5;
 const DRAW_DURATION_SEC = 20;
 const GUESS_DURATION_SEC = 10;
+const DRAWING_UPLOAD_CONCURRENCY = 2;
 
 type RelayPlayer = {
   id: string;
@@ -195,31 +196,60 @@ export function DrawingRelayFlow() {
     setDrawingsUploadError(null);
 
     try {
-      const uploadedDrawings: Array<{ src: string; authorName: string }> = [];
+      const uploadTasks = drawings
+        .map((drawing, index) => {
+          const authorName = activePlayers[drawing.playerIndex]?.name || `Player ${drawing.playerIndex + 1}`;
+          const drawingFile = dataUrlToFile(
+            drawing.imageDataUrl,
+            `drawing-${index + 1}-${authorName.replace(/\\s+/g, "-")}.png`
+          );
 
-      for (let index = 0; index < drawings.length; index += 1) {
-        const drawing = drawings[index];
-        const authorName = activePlayers[drawing.playerIndex]?.name || `Player ${drawing.playerIndex + 1}`;
-        const drawingFile = dataUrlToFile(
-          drawing.imageDataUrl,
-          `drawing-${index + 1}-${authorName.replace(/\\s+/g, "-")}.png`
-        );
+          if (!drawingFile) {
+            return null;
+          }
 
-        if (!drawingFile) {
-          continue;
+          return {
+            authorName,
+            drawingFile,
+            index
+          };
+        })
+        .filter((task): task is { authorName: string; drawingFile: File; index: number } => task !== null);
+      const uploadedByIndex: Array<{ authorName: string; src: string; index: number }> = [];
+      let nextTaskIndex = 0;
+
+      const workerCount = Math.min(DRAWING_UPLOAD_CONCURRENCY, uploadTasks.length);
+      const workers = Array.from({ length: workerCount }, async () => {
+        while (nextTaskIndex < uploadTasks.length) {
+          const task = uploadTasks[nextTaskIndex];
+          nextTaskIndex += 1;
+
+          if (!task) {
+            continue;
+          }
+
+          const uploadResult = await uploadGameAsset({
+            assetType: "drawing",
+            file: task.drawingFile,
+            playerName: task.authorName
+          });
+
+          uploadedByIndex.push({
+            authorName: task.authorName,
+            index: task.index,
+            src: uploadResult.publicUrl
+          });
         }
+      });
 
-        const uploadResult = await uploadGameAsset({
-          assetType: "drawing",
-          file: drawingFile,
-          playerName: authorName
-        });
+      await Promise.all(workers);
 
-        uploadedDrawings.push({
-          authorName,
-          src: uploadResult.publicUrl
-        });
-      }
+      const uploadedDrawings = uploadedByIndex
+        .sort((left, right) => left.index - right.index)
+        .map((drawing) => ({
+          authorName: drawing.authorName,
+          src: drawing.src
+        }));
 
       if (uploadedDrawings.length) {
         saveDrawingMemoryAssets(uploadedDrawings, {

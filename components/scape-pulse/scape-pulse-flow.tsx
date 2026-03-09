@@ -20,6 +20,7 @@ import { OnboardingScreen } from "@/components/scape-pulse/flow/screens/onboardi
 import { ProfileScreen } from "@/components/scape-pulse/flow/screens/profile-screen";
 import { RaceCameraScreen } from "@/components/scape-pulse/flow/screens/race-camera-screen";
 import type { FlowScreen, TeamMember } from "@/components/scape-pulse/flow/types";
+import { saveSharedTeamParticipants } from "@/lib/team-participants";
 
 // Runtime Three.js + OrbitControls loaded dynamically to avoid SSR hydration mismatches
 let THREE = null as any as Awaited<typeof import("three")>;
@@ -664,6 +665,16 @@ export function ScapePulseFlow() {
     const id = window.setTimeout(() => setScreen("ar-guide"), 1800);
     return () => window.clearTimeout(id);
   }, [screen]);
+
+  useEffect(() => {
+    saveSharedTeamParticipants(
+      members.map((member) => ({
+        avatar: member.avatar,
+        id: member.id,
+        name: member.name
+      }))
+    );
+  }, [members]);
 
   return (
     <div className="anim-ambient-bg min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.12),transparent_35%),#050505] md:px-6 md:py-8">

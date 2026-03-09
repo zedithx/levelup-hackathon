@@ -12,6 +12,8 @@ const DANCE_TITLE = "Viral TikTok Team Dance";
 const FALLBACK_RECORDING_SEC = 15;
 const PRE_RECORD_COUNTDOWN_SEC = 3;
 const DANCE_RECORD_AUDIO_SRC = "/audio/dance.mp3";
+const VIDEO_RECORDING_BITS_PER_SECOND = 2_500_000;
+const AUDIO_RECORDING_BITS_PER_SECOND = 128_000;
 
 type DanceScreen = "watch" | "record" | "review" | "submitted";
 
@@ -40,7 +42,13 @@ function supportedRecorderOptions() {
 
   const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
 
-  return mimeType ? { mimeType } : undefined;
+  return mimeType
+    ? {
+      audioBitsPerSecond: AUDIO_RECORDING_BITS_PER_SECOND,
+      mimeType,
+      videoBitsPerSecond: VIDEO_RECORDING_BITS_PER_SECOND
+    }
+    : undefined;
 }
 
 function extensionFromVideoType(mimeType: string) {
@@ -243,7 +251,14 @@ export function DanceFlow() {
     setRecordingSec(0);
     shouldOpenReviewAfterStopRef.current = true;
 
-    const recorder = new MediaRecorder(streamRef.current, supportedRecorderOptions());
+    let recorder: MediaRecorder;
+
+    try {
+      recorder = new MediaRecorder(streamRef.current, supportedRecorderOptions());
+    } catch {
+      recorder = new MediaRecorder(streamRef.current);
+    }
+
     recorderRef.current = recorder;
 
     recorder.ondataavailable = (event) => {
@@ -296,7 +311,7 @@ export function DanceFlow() {
       clearRecordingTimers();
     };
 
-    recorder.start(250);
+    recorder.start(1000);
     setIsRecording(true);
     void playDanceAudio();
 
