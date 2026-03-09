@@ -774,14 +774,7 @@ export function ScapePulseFlow() {
     if (screen !== "handoff") return;
     const id = window.setTimeout(() => setScreen("lobby"), 3000);
     return () => window.clearTimeout(id);
-  }, [screen]);
-
-  // Wait for sessionStorage restore before rendering â€” prevents flash of intro-1
-  if (!hydrated) {
-    return <div className="min-h-[100dvh] bg-[#050505]" />;
-  }
-
-  const isIntroOrFinal = screen === "intro-1" || screen === "intro-2" || screen === "intro-3" || screen === "intro-4" || screen === "final-destination-carousel";
+  }, [screen, setScreen]);
 
   useEffect(() => {
     saveSharedTeamParticipants(
@@ -792,6 +785,13 @@ export function ScapePulseFlow() {
       }))
     );
   }, [members]);
+
+  // Wait for sessionStorage restore before rendering â€” prevents flash of intro-1
+  if (!hydrated) {
+    return <div className="min-h-[100dvh] bg-[#050505]" />;
+  }
+
+  const isIntroOrFinal = screen === "intro-1" || screen === "intro-2" || screen === "intro-3" || screen === "intro-4" || screen === "final-destination-carousel";
 
   return (
     <div className="anim-ambient-bg min-h-[100dvh] bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.12),transparent_35%),#050505] md:px-6 md:py-8">
@@ -1052,7 +1052,6 @@ export function ScapePulseFlow() {
     </div>
   );
 }
-
 
 
 

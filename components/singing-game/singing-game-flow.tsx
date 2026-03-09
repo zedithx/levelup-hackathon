@@ -77,7 +77,11 @@ function buildInitialMembers(): DrawingGameMember[] {
   }));
 }
 
-export function SingingGameFlow() {
+type SingingGameFlowProps = {
+  onComplete?: () => void;
+};
+
+export function SingingGameFlow({ onComplete }: SingingGameFlowProps = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<DrawingGameScreen>("instructions");
   const [members, setMembers] = useState<DrawingGameMember[]>(buildInitialMembers);
