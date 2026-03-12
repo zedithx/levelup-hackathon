@@ -1,36 +1,32 @@
 import { NextResponse } from "next/server";
+import {
+  applyRateLimitHeaders,
+  consumeSignedUploadLimit,
+  isAllowedUploadOrigin,
+  isUploadSecurityConfigured,
+  missingUploadSecurityMessage,
+  UPLOAD_SESSION_COOKIE_NAME,
+  verifyUploadSessionToken
+} from "@/lib/upload-security";
+import {
+  describeAllowedUploadFormats,
+  getUploadMimePolicy,
+  type UploadAssetType
+} from "@/lib/upload-policy";
 
 export const runtime = "nodejs";
 
-const ASSET_TYPES = ["selfie", "dance", "drawing", "singing"] as const;
+const ASSET_TYPES: UploadAssetType[] = ["selfie", "dance", "drawing", "singing"];
 
-type AssetType = (typeof ASSET_TYPES)[number];
-
-const MAX_UPLOAD_BYTES: Record<AssetType, number> = {
-  selfie: 12 * 1024 * 1024,
+const MAX_UPLOAD_BYTES: Record<UploadAssetType, number> = {
   dance: 80 * 1024 * 1024,
   drawing: 8 * 1024 * 1024,
+  selfie: 12 * 1024 * 1024,
   singing: 25 * 1024 * 1024
 };
 
-function isAssetType(value: string): value is AssetType {
-  return ASSET_TYPES.includes(value as AssetType);
-}
-
-function isMimeAllowed(assetType: AssetType, mimeType: string) {
-  if (assetType === "selfie" || assetType === "drawing") {
-    return mimeType.startsWith("image/");
-  }
-
-  if (assetType === "dance") {
-    return mimeType.startsWith("video/");
-  }
-
-  if (assetType === "singing") {
-    return mimeType.startsWith("audio/");
-  }
-
-  return false;
+function isAssetType(value: string): value is UploadAssetType {
+  return ASSET_TYPES.includes(value as UploadAssetType);
 }
 
 function sanitizeToken(value: string) {
@@ -71,34 +67,9 @@ function encodeObjectPath(path: string) {
     .join("/");
 }
 
-function extensionForMimeType(mimeType: string) {
-  if (mimeType.includes("jpeg")) return "jpg";
-  if (mimeType.includes("png")) return "png";
-  if (mimeType.includes("webp")) return "webp";
-  if (mimeType.includes("gif")) return "gif";
-  if (mimeType.includes("mp4")) return "mp4";
-  if (mimeType.includes("webm")) return "webm";
-  if (mimeType.includes("mpeg")) return "mp3";
-  if (mimeType.includes("wav")) return "wav";
-  if (mimeType.includes("ogg")) return "ogg";
-
-  return "bin";
-}
-
-function extensionForFile(filename: string, mimeType: string) {
-  const maybeNameExtension = filename.split(".").pop()?.toLowerCase() ?? "";
-
-  if (/^[a-z0-9]{1,10}$/.test(maybeNameExtension)) {
-    return maybeNameExtension;
-  }
-
-  return extensionForMimeType(mimeType);
-}
-
-function buildObjectPath(assetType: AssetType, filename: string, mimeType: string, playerName: string | null) {
+function buildObjectPath(assetType: UploadAssetType, extension: string, playerName: string | null) {
   const timestamp = new Date().toISOString().replace(/[.:]/g, "-");
   const id = crypto.randomUUID();
-  const extension = extensionForFile(filename, mimeType);
 
   if (assetType === "selfie") {
     return `selfie/${timestamp}-${id}.${extension}`;
@@ -132,13 +103,73 @@ function buildSignedUploadUrl(storageApiBase: string, urlPath: string) {
   return `${storageApiBase}/${urlPath}`;
 }
 
+function readCookie(request: Request, name: string) {
+  const cookieHeader = request.headers.get("cookie");
+
+  if (!cookieHeader) {
+    return undefined;
+  }
+
+  for (const rawCookie of cookieHeader.split(";")) {
+    const [cookieName, ...rawValue] = rawCookie.trim().split("=");
+
+    if (cookieName === name) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+
+  return undefined;
+}
+
+function jsonResponse(body: unknown, status: number, rateLimit?: { allowed: boolean; limit: number; remaining: number; resetAt: number }) {
+  const response = NextResponse.json(body, { status });
+  response.headers.set("cache-control", "no-store");
+
+  if (rateLimit) {
+    applyRateLimitHeaders(response.headers, rateLimit);
+  }
+
+  return response;
+}
+
+function logUploadFailure(message: string, details?: unknown) {
+  console.error("[upload]", message, details);
+}
+
 export async function POST(request: Request) {
+  if (!isUploadSecurityConfigured()) {
+    return jsonResponse({ error: missingUploadSecurityMessage() }, 500);
+  }
+
+  if (!isAllowedUploadOrigin(request)) {
+    return jsonResponse({ error: "Upload requests must originate from this site." }, 403);
+  }
+
+  const uploadSessionToken = readCookie(request, UPLOAD_SESSION_COOKIE_NAME);
+  const uploadSession = verifyUploadSessionToken(uploadSessionToken, request.headers.get("user-agent"));
+
+  if (!uploadSession) {
+    return jsonResponse({ error: "Upload session is missing or expired. Refresh the page and try again." }, 401);
+  }
+
+  const signingRateLimit = consumeSignedUploadLimit(request, uploadSession.sid);
+
+  if (!signingRateLimit.allowed) {
+    return jsonResponse(
+      {
+        error: "Upload limit reached for this session. Please wait a few minutes and try again."
+      },
+      429,
+      signingRateLimit
+    );
+  }
+
   const storageUrl = process.env.SUPABASE_STORAGE_URL;
   const storageServiceKey = process.env.SUPABASE_STORAGE_SERVICE_KEY;
   const storageBucket = process.env.SUPABASE_STORAGE_BUCKET;
 
   if (!storageUrl || !storageServiceKey || !storageBucket) {
-    return NextResponse.json({ error: missingStorageEnvMessage() }, { status: 500 });
+    return jsonResponse({ error: missingStorageEnvMessage() }, 500, signingRateLimit);
   }
 
   let payload: unknown;
@@ -146,50 +177,54 @@ export async function POST(request: Request) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json(
+    return jsonResponse(
       {
-        error: "Invalid JSON body. Send assetType, filename, mimeType, and size."
+        error: "Invalid JSON body. Send assetType, mimeType, and size."
       },
-      { status: 400 }
+      400,
+      signingRateLimit
     );
   }
 
   if (!payload || typeof payload !== "object") {
-    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
+    return jsonResponse({ error: "Request body must be a JSON object." }, 400, signingRateLimit);
   }
 
   const record = payload as Record<string, unknown>;
   const assetTypeRaw = typeof record.assetType === "string" ? record.assetType.trim() : "";
-  const filename = typeof record.filename === "string" ? record.filename.trim() : "";
   const mimeType = typeof record.mimeType === "string" ? record.mimeType.trim() : "";
   const size = typeof record.size === "number" ? record.size : Number.NaN;
   const playerName = typeof record.playerName === "string" ? record.playerName.trim() : null;
 
   if (!isAssetType(assetTypeRaw)) {
-    return NextResponse.json({ error: "assetType must be one of: selfie, dance, drawing, singing." }, { status: 400 });
-  }
-
-  if (!filename) {
-    return NextResponse.json({ error: "filename is required." }, { status: 400 });
+    return jsonResponse({ error: "assetType must be one of: selfie, dance, drawing, singing." }, 400, signingRateLimit);
   }
 
   if (!mimeType) {
-    return NextResponse.json({ error: "mimeType is required." }, { status: 400 });
+    return jsonResponse({ error: "mimeType is required." }, 400, signingRateLimit);
   }
 
   if (!Number.isFinite(size) || size <= 0) {
-    return NextResponse.json({ error: "size must be a positive number." }, { status: 400 });
+    return jsonResponse({ error: "size must be a positive number." }, 400, signingRateLimit);
   }
 
   if (size > MAX_UPLOAD_BYTES[assetTypeRaw]) {
-    return NextResponse.json({ error: `File is too large for ${assetTypeRaw}.` }, { status: 413 });
+    return jsonResponse({ error: `File is too large for ${assetTypeRaw}.` }, 413, signingRateLimit);
   }
 
-  if (!isMimeAllowed(assetTypeRaw, mimeType)) {
-    return NextResponse.json({ error: `Unsupported file type for ${assetTypeRaw}.` }, { status: 415 });
+  const mimePolicy = getUploadMimePolicy(assetTypeRaw, mimeType);
+
+  if (!mimePolicy) {
+    return jsonResponse(
+      {
+        error: `Unsupported ${assetTypeRaw} format. Allowed formats: ${describeAllowedUploadFormats(assetTypeRaw)}.`
+      },
+      415,
+      signingRateLimit
+    );
   }
 
-  const objectPath = buildObjectPath(assetTypeRaw, filename, mimeType, playerName);
+  const objectPath = buildObjectPath(assetTypeRaw, mimePolicy.extension, playerName);
   const encodedObjectPath = encodeObjectPath(objectPath);
   const encodedBucket = encodeURIComponent(storageBucket);
   const storageApiBase = normalizeStorageApiBase(storageUrl);
@@ -211,14 +246,12 @@ export async function POST(request: Request) {
 
     if (!upstreamResponse.ok) {
       const upstreamError = await upstreamResponse.text();
+      logUploadFailure("Failed to create signed upload URL", {
+        status: upstreamResponse.status,
+        upstreamError: upstreamError.slice(0, 200)
+      });
 
-      return NextResponse.json(
-        {
-          error: "Failed to create signed upload URL.",
-          details: upstreamError.slice(0, 500)
-        },
-        { status: 502 }
-      );
+      return jsonResponse({ error: "Failed to create signed upload URL." }, 502, signingRateLimit);
     }
 
     const upstreamPayload = (await upstreamResponse.json().catch(() => null)) as Record<string, unknown> | null;
@@ -229,19 +262,28 @@ export async function POST(request: Request) {
         {
           error: "Storage did not return a signed upload URL."
         },
-        { status: 502 }
+        {
+          status: 502,
+          headers: {
+            "cache-control": "no-store"
+          }
+        }
       );
     }
 
     const signedUrl = buildSignedUploadUrl(storageApiBase, signedPath);
-
-    return NextResponse.json({
+    const response = NextResponse.json({
+      contentType: mimePolicy.contentType,
       objectPath,
       publicUrl,
       signedUrl
     });
+    response.headers.set("cache-control", "no-store");
+    applyRateLimitHeaders(response.headers, signingRateLimit);
+
+    return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown signed upload error";
-    return NextResponse.json({ error: "Failed to prepare upload.", details: message }, { status: 500 });
+    logUploadFailure("Failed to prepare upload.", error instanceof Error ? error.message : error);
+    return jsonResponse({ error: "Failed to prepare upload." }, 500, signingRateLimit);
   }
 }

@@ -1,6 +1,12 @@
-export type UploadAssetType = "selfie" | "dance" | "drawing" | "singing";
+import { validateUploadFileSignature, type UploadAssetType } from "@/lib/upload-policy";
+
+const UPLOAD_SESSION_REFRESH_MS = 10 * 60 * 1000;
+
+let uploadSessionRequest: Promise<void> | null = null;
+let uploadSessionValidUntil = 0;
 
 type UploadResponse = {
+  contentType: string;
   objectPath: string;
   publicUrl: string;
 };
@@ -35,7 +41,44 @@ function uploadErrorMessage(fallback: string, payload: unknown) {
   return fallback;
 }
 
+async function ensureUploadSession() {
+  if (Date.now() < uploadSessionValidUntil) {
+    return;
+  }
+
+  if (!uploadSessionRequest) {
+    uploadSessionRequest = (async () => {
+      const response = await fetch("/api/storage/upload/session", {
+        cache: "no-store",
+        credentials: "same-origin",
+        method: "POST"
+      });
+      const payload = response.status === 204 ? null : ((await response.json().catch(() => null)) as unknown);
+
+      if (!response.ok) {
+        throw new Error(uploadErrorMessage("Unable to start upload session.", payload));
+      }
+
+      uploadSessionValidUntil = Date.now() + UPLOAD_SESSION_REFRESH_MS;
+    })();
+  }
+
+  try {
+    await uploadSessionRequest;
+  } finally {
+    uploadSessionRequest = null;
+  }
+}
+
 export async function uploadGameAsset({ assetType, file, playerName }: UploadOptions): Promise<UploadResponse> {
+  const validationMessage = await validateUploadFileSignature(assetType, file);
+
+  if (validationMessage) {
+    throw new Error(validationMessage);
+  }
+
+  await ensureUploadSession();
+
   const response = await fetch("/api/storage/upload", {
     method: "POST",
     headers: {
@@ -43,7 +86,6 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
     },
     body: JSON.stringify({
       assetType,
-      filename: file.name,
       mimeType: file.type,
       size: file.size,
       playerName: playerName?.trim() || undefined
@@ -62,7 +104,7 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
 
   const result = payload as Partial<SignedUploadResponse>;
 
-  if (!result.publicUrl || !result.objectPath || !result.signedUrl) {
+  if (!result.contentType || !result.publicUrl || !result.objectPath || !result.signedUrl) {
     throw new Error("Upload failed: missing signed upload data from server.");
   }
 
@@ -70,7 +112,7 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
     method: "PUT",
     headers: {
       "cache-control": "31536000",
-      "content-type": file.type || "application/octet-stream",
+      "content-type": result.contentType,
       "x-upsert": "true"
     },
     body: file
@@ -82,6 +124,7 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
   }
 
   return {
+    contentType: result.contentType,
     objectPath: result.objectPath,
     publicUrl: result.publicUrl
   };

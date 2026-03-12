@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GhostButton, Panel, PrimaryButton, ProgressBar } from "@/components/drawing-game/flow/ui";
 import { saveDanceMemoryAsset } from "@/lib/memory-assets";
+import { describeAllowedUploadFormats, getUploadAcceptAttribute, getUploadMimePolicy } from "@/lib/upload-policy";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const DANCE_TITLE = "Viral TikTok Team Dance";
@@ -378,6 +379,12 @@ export function DanceFlow({ onComplete, onBack }: { onComplete?: () => void; onB
         return;
       }
 
+      if (!getUploadMimePolicy("dance", file.type)) {
+        setCameraError(`Unsupported video format. Allowed formats: ${describeAllowedUploadFormats("dance")}.`);
+        event.target.value = "";
+        return;
+      }
+
       const nextUrl = URL.createObjectURL(file);
       setRecordingUrl((currentUrl) => {
         if (currentUrl) {
@@ -639,7 +646,7 @@ export function DanceFlow({ onComplete, onBack }: { onComplete?: () => void; onB
                 />
                 <label className="anim-elevate btn-fit flex cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/5 text-xs text-white/65 hover:border-white/25">
                   Upload recorded video instead
-                  <input accept="video/*" className="hidden" onChange={handleFileUploadFallback} type="file" />
+                  <input accept={getUploadAcceptAttribute("dance")} className="hidden" onChange={handleFileUploadFallback} type="file" />
                 </label>
                 <GhostButton className="h-10 w-full" label="Back to dance preview" onClick={() => setScreen("watch")} />
               </div>

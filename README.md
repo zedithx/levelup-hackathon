@@ -73,8 +73,10 @@ Add these to `.env.local`:
 - `SUPABASE_STORAGE_SERVICE_KEY` (Supabase service role key)
 - `SUPABASE_STORAGE_BUCKET` (bucket name for memories)
 - `SUPABASE_STORAGE_PUBLIC_URL_BASE` (optional public URL base override)
+- `UPLOAD_SESSION_SECRET` (a long random secret used to sign short-lived upload session cookies)
 
 For direct playback in the frontend carousel, the bucket should be public.
+The upload flow now requires a same-origin browser session cookie before the server will mint a signed upload URL, which helps reduce blind abuse of the service-role-backed signing endpoint.
 
 ## Migrations
 

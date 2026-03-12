@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ASSETS } from "@/components/scape-pulse/flow/constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1052,7 +1053,6 @@ export function ScapePulseFlow() {
     </div>
   );
 }
-
 
 
 

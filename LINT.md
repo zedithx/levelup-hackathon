@@ -38,3 +38,10 @@ Use this template for new recurring lint issues:
 - Resolution Method: Prefer `next/image`; only keep `<img>` when external constraints require it and lint is intentionally suppressed.
 - Prevention: Use `Image` for new UI unless there is a specific technical reason not to.
 - Example: `components/scape-pulse/scape-pulse-flow.tsx:283`
+
+## Rule: `parse-error-merge-conflict-marker`
+- Error Pattern: `Parsing error: Merge conflict marker encountered`
+- Root Cause: A file that ESLint scans still contains unresolved merge conflict markers such as `<<<<<<<`, often inside generated history/snapshot folders.
+- Resolution Method: Remove the conflict markers or delete/exclude the stale snapshot file from linting.
+- Prevention: After resolving merges, run `rg -n '^(<<<<<<<|=======|>>>>>>>)' .` before linting if the worktree included conflicts.
+- Example: `.history/components/singing-game/singing-game-flow_20260309175726.tsx:63`

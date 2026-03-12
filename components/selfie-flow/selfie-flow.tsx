@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FlowShell, Panel, PrimaryButton } from "@/components/drawing-game/flow/ui";
 import { saveSelfieMemoryAsset } from "@/lib/memory-assets";
+import { describeAllowedUploadFormats, getUploadAcceptAttribute, getUploadMimePolicy } from "@/lib/upload-policy";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
 
 const VERIFY_DELAY_MS = 400;
@@ -96,10 +97,10 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
       return;
     }
 
-    if (!nextFile.type.startsWith("image/")) {
+    if (!getUploadMimePolicy("selfie", nextFile.type)) {
       setSelfieFile(null);
       setVerificationState("error");
-      setStatusMessage("Upload failed: please choose an image file.");
+      setStatusMessage(`Upload failed: allowed formats are ${describeAllowedUploadFormats("selfie")}.`);
       return;
     }
 
@@ -233,7 +234,7 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
           </div>
 
           <input
-            accept="image/*"
+            accept={getUploadAcceptAttribute("selfie")}
             capture="environment"
             className="hidden"
             onChange={onSelfiePicked}

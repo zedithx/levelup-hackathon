@@ -5,9 +5,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from backend.app.core.config import get_settings
 from backend.app.db.session import get_db
 
 router = APIRouter(prefix="/health", tags=["health"])
+settings = get_settings()
 
 
 @router.get("")
@@ -17,6 +19,12 @@ def health() -> dict[str, str]:
 
 @router.get("/db")
 def db_health(db: Session = Depends(get_db)) -> dict[str, str]:
+    if not settings.db_healthcheck_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not found."
+        )
+
     try:
         db.execute(text("SELECT 1"))
     except RuntimeError as exc:
