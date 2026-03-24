@@ -98,9 +98,19 @@ export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarous
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
   const [isFinalSongPlaying, setIsFinalSongPlaying] = useState(false);
+  const [hasFirstMemoryImageError, setHasFirstMemoryImageError] = useState(false);
 
   const voiceTrackRef = useRef<HTMLAudioElement | null>(null);
   const backingTrackRef = useRef<HTMLAudioElement | null>(null);
+  const downloadTimerIdsRef = useRef<number[]>([]);
+
+  // Clear any pending download timers if the component unmounts mid-sequence
+  useEffect(() => {
+    return () => {
+      downloadTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
+      downloadTimerIdsRef.current = [];
+    };
+  }, []);
 
   const drawings = useMemo(
     () => media.drawings.filter((drawing) => drawing.src.trim()),
@@ -112,6 +122,8 @@ export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarous
   const canMoveNext = activeSlideIndex < ENDING_SLIDES.length - 1;
   const safeDrawingIndex = drawings.length ? drawingFrameIndex % drawings.length : 0;
   const activeDrawing = drawings[safeDrawingIndex];
+  const firstMemorySrc = media.firstLocationImageSrc.trim();
+  const showFirstMemoryPlaceholder = !firstMemorySrc || hasFirstMemoryImageError;
   const drawingActualWord = media.drawingStory.actualWord.trim();
   const drawingFinalWord = media.drawingStory.finalWord.trim();
   const shouldRevealActualWord = slideProgress >= 18;
@@ -171,6 +183,10 @@ export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarous
   useEffect(() => {
     setDrawingFrameIndex(0);
   }, [activeSlide.id]);
+
+  useEffect(() => {
+    setHasFirstMemoryImageError(false);
+  }, [firstMemorySrc]);
 
   useEffect(() => {
     if (activeSlide.id === "final-song") {
@@ -297,16 +313,21 @@ export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarous
     setIsDownloadingAll(true);
     setDownloadStatus(`Preparing ${files.length} downloads...`);
 
+    downloadTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    downloadTimerIdsRef.current = [];
+
     files.forEach((file, index) => {
-      window.setTimeout(() => {
+      const id = window.setTimeout(() => {
         triggerDownload(file.url, file.name);
       }, index * 180);
+      downloadTimerIdsRef.current.push(id);
     });
 
-    window.setTimeout(() => {
+    const finalId = window.setTimeout(() => {
       setIsDownloadingAll(false);
       setDownloadStatus(`Queued ${files.length} files for download.`);
     }, files.length * 180 + 320);
+    downloadTimerIdsRef.current.push(finalId);
   };
 
   return (
@@ -358,12 +379,27 @@ export function FinalDestinationCarouselScreen({ media }: FinalDestinationCarous
           <div className="mt-4">
             {activeSlide.id === "first-game-memory" ? (
               <div className="relative h-[38dvh] min-h-[248px] overflow-hidden rounded-[16px] border border-[#ff6b00]/25">
-                <img
-                  alt="First game memory from bucket"
-                  className="anim-carousel-reveal h-full w-full object-cover"
-                  key={`${activeSlide.id}-${media.firstLocationImageSrc}`}
-                  src={media.firstLocationImageSrc}
-                />
+                {showFirstMemoryPlaceholder ? (
+                  <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(255,107,0,0.28),rgba(10,10,10,0.96)_68%)] px-6 text-center">
+                    <div>
+                      <p className="text-[0.68rem] tracking-[0.22em] text-[#ffd3b0]">PLACEHOLDER IMAGE</p>
+                      <p className="mt-3 font-display text-[clamp(1.4rem,6vw,1.9rem)] leading-none text-white">
+                        First Game Memory
+                      </p>
+                      <p className="mt-3 max-w-[18rem] text-sm leading-6 text-white/65">
+                        Add the first location photo to replace this placeholder in the opening section.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    alt="First game memory from bucket"
+                    className="anim-carousel-reveal h-full w-full object-cover"
+                    key={`${activeSlide.id}-${firstMemorySrc}`}
+                    onError={() => setHasFirstMemoryImageError(true)}
+                    src={firstMemorySrc}
+                  />
+                )}
                 <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_20%,rgba(0,0,0,0.72)_100%)]" />
                 <p className="absolute bottom-3 left-3 rounded-full border border-white/20 bg-black/45 px-3 py-1 text-[0.7rem] tracking-[0.08em] text-white/85">
                   FIRST GAME LOCATION SNAPSHOT

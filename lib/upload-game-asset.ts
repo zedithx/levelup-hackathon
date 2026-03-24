@@ -19,6 +19,7 @@ type UploadOptions = {
   assetType: UploadAssetType;
   file: File;
   playerName?: string;
+  signal?: AbortSignal;
 };
 
 function uploadErrorMessage(fallback: string, payload: unknown) {
@@ -70,7 +71,7 @@ async function ensureUploadSession() {
   }
 }
 
-export async function uploadGameAsset({ assetType, file, playerName }: UploadOptions): Promise<UploadResponse> {
+export async function uploadGameAsset({ assetType, file, playerName, signal }: UploadOptions): Promise<UploadResponse> {
   const validationMessage = await validateUploadFileSignature(assetType, file);
 
   if (validationMessage) {
@@ -89,7 +90,8 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
       mimeType: file.type,
       size: file.size,
       playerName: playerName?.trim() || undefined
-    })
+    }),
+    signal
   });
 
   const payload = (await response.json().catch(() => null)) as unknown;
@@ -115,7 +117,8 @@ export async function uploadGameAsset({ assetType, file, playerName }: UploadOpt
       "content-type": result.contentType,
       "x-upsert": "true"
     },
-    body: file
+    body: file,
+    signal
   });
 
   if (!directUploadResponse.ok) {

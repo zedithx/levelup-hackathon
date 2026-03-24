@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { RaceFlowConfig } from "@/components/scape-pulse/flow/types";
 import { BrandBar } from "@/components/scape-pulse/flow/ui";
 import { reveal } from "@/components/scape-pulse/flow/utils";
+import { compressImageFile } from "@/lib/compress-image";
 
 type RaceCameraScreenProps = {
   config: RaceFlowConfig;
@@ -28,6 +29,7 @@ export function RaceCameraScreen({
   const [checkpointPhoto, setCheckpointPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
   const [statusMessage, setStatusMessage] = useState("Take a photo of this checkpoint to continue.");
+  const [isCompressing, setIsCompressing] = useState(false);
 
   useEffect(() => {
     if (!checkpointPhoto) {
@@ -47,7 +49,7 @@ export function RaceCameraScreen({
     fileInputRef.current?.click();
   };
 
-  const onPhotoPicked = (event: ChangeEvent<HTMLInputElement>) => {
+  const onPhotoPicked = async (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
 
@@ -56,7 +58,11 @@ export function RaceCameraScreen({
       return;
     }
 
-    setCheckpointPhoto(nextFile);
+    setIsCompressing(true);
+    setStatusMessage("Processing photo...");
+    const compressed = await compressImageFile(nextFile);
+    setIsCompressing(false);
+    setCheckpointPhoto(compressed);
     setStatusMessage("Photo captured. Confirm checkpoint when ready.");
   };
 
@@ -127,7 +133,7 @@ export function RaceCameraScreen({
             style={reveal(160)}
             type="button"
           >
-            {checkpointPhoto ? "Retake Photo" : "Take Photo"}
+            {isCompressing ? "Processing..." : checkpointPhoto ? "Retake Photo" : "Take Photo"}
           </button>
           <button
             className="anim-elevate btn-fit h-11 rounded-[12px] border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:text-white/30"
@@ -144,7 +150,7 @@ export function RaceCameraScreen({
 
         <button
           className="anim-elevate btn-fit anim-fade-up mt-3 h-11 w-full rounded-[12px] border border-[#ff6b00]/40 bg-[#ff6b00]/20 text-sm font-bold text-[#ffd0b0] transition-colors hover:border-[#ff6b00]/70 hover:bg-[#ff6b00]/30 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/35"
-          disabled={!checkpointPhoto}
+          disabled={!checkpointPhoto || isCompressing}
           onClick={completeCheckpoint}
           style={reveal(200)}
           type="button"

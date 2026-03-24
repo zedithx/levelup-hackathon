@@ -101,6 +101,8 @@ export function SingingGameFlow({ onComplete }: SingingGameFlowProps = {}) {
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  // Cancels a pending getUserMedia call if the component unmounts mid-await
+  const captureAbortedRef = useRef(false);
 
   const turns = useMemo(
     () => buildTurns(members, SINGING_GAME_SONG).filter((turn) => turn.durationSec > 0),
@@ -172,7 +174,16 @@ export function SingingGameFlow({ onComplete }: SingingGameFlowProps = {}) {
     }
 
     try {
+      captureAbortedRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+      // If the component unmounted while getUserMedia was pending, stop the
+      // acquired stream immediately and bail out — nothing to record into.
+      if (captureAbortedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       let recorder: MediaRecorder;
 
       try {
@@ -450,6 +461,9 @@ export function SingingGameFlow({ onComplete }: SingingGameFlowProps = {}) {
 
   useEffect(() => {
     return () => {
+      // Mark as aborted so any in-flight getUserMedia resolves to an immediate
+      // track.stop() rather than starting a recorder that writes into unmounted state.
+      captureAbortedRef.current = true;
       stopRoundAudioCapture();
     };
   }, [stopRoundAudioCapture]);
