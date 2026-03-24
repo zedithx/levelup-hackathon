@@ -43,7 +43,7 @@ function ensureThreeLocal(): Promise<void> {
   return _threeLoad;
 }
 
-// â”€â”€ Avatar palette & emoji map (not in avatar-builders) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Avatar palette & emoji map (not in avatar-builders) ──────────────────────
 
 const ANIMAL_PALETTES: Record<AnimalType, {
   body: string[]; accent: string[]; eye: string[]; marking: string[];
@@ -73,12 +73,12 @@ const ANIMAL_PALETTES: Record<AnimalType, {
 };
 
 const EMOJI_TO_ANIMAL: Record<string, AnimalType> = {
-  "ðŸ·": "pig",
-  "ðŸ¶": "dog",
-  "ðŸ”": "chicken",
+  "🐷": "pig",
+  "🐶": "dog",
+  "🐔": "chicken",
 };
 
-// â”€â”€ Local Three.js build helpers (use module-level THREE singleton) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Local Three.js build helpers (use module-level THREE singleton) ────────────
 
 function avatarMat(color: string, roughness = 0.75, metalness = 0) {
   return new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness, metalness });
@@ -244,7 +244,7 @@ async function renderAvatarPreview(cfg: AvatarConfig): Promise<string> {
   return url;
 }
 
-// â”€â”€ Shared UI primitives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Shared UI primitives ──────────────────────────────────────────────────────
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -318,7 +318,7 @@ function PrimaryButton({ label, onClick, disabled, fullWidth = true }: {
   );
 }
 
-// â”€â”€ Character selection screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Character selection screen ────────────────────────────────────────────────
 
 function CharacterSelectionScreen({ onContinue }: { onContinue: (animal: AnimalType) => void }) {
   const [selected, setSelected] = useState<AnimalType>("pig");
@@ -332,7 +332,7 @@ function CharacterSelectionScreen({ onContinue }: { onContinue: (animal: AnimalT
     });
   }, []);
 
-  const animalEmoji: Record<AnimalType, string> = { pig: "ðŸ·", dog: "ðŸ¶", chicken: "ðŸ”" };
+  const animalEmoji: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
 
   return (
     <div className="flex min-h-[100dvh] flex-col md:min-h-[852px]">
@@ -377,7 +377,7 @@ function CharacterSelectionScreen({ onContinue }: { onContinue: (animal: AnimalT
   );
 }
 
-// â”€â”€ Character customise screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Character customise screen ────────────────────────────────────────────────
 
 function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
   selectedAvatar: string; onContinue: (cfg: AvatarConfig) => void;
@@ -414,7 +414,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
       scene.background = new THREE.Color("#0d0d1a");
 
       // All animals span roughly y=0 (feet) to y=2.2 (ears/top).
-      // Aim the camera at y=1.1 â€” the true vertical midpoint.
+      // Aim the camera at y=1.1 — the true vertical midpoint.
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
       camera.position.set(0, 1.1, 5.5);
 
@@ -547,7 +547,7 @@ function CharacterCustomiseScreen({ selectedAvatar, onContinue }: {
   );
 }
 
-// â”€â”€ Main flow component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main flow component ───────────────────────────────────────────────────────
 
 type CheckpointTransition = {
   checkpointName: string;
@@ -589,13 +589,13 @@ const CHECKPOINT_TRANSITIONS: Record<"ar-race" | "ar-race-dance" | "ar-race-draw
 
 export function ScapePulseFlow() {
   const endingCarouselMedia = useEndingCarouselMedia();
-  // â”€â”€ Raw state (SSR-safe defaults) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Raw state (SSR-safe defaults) ──────────────────────────────────────────
   const [screenState, setScreenState] = useState<FlowScreen>("intro-1");
   const [avatarConfigState, setAvatarConfigState] = useState<AvatarConfig | null>(null);
   const [, setCheckpointClearedState] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
-  // â”€â”€ Restore from sessionStorage after hydration (client-only, runs once) â”€â”€
+  // ── Restore from sessionStorage after hydration (client-only, runs once) ──
   useEffect(() => {
     try {
       const s = sessionStorage.getItem("pulse-screen") as FlowScreen | null;
@@ -607,7 +607,7 @@ export function ScapePulseFlow() {
     setHydrated(true);
   }, []);
 
-  // â”€â”€ Persisted setters â€“ write to sessionStorage at call site, not in effects â”€â”€
+  // ── Persisted setters â€“ write to sessionStorage at call site, not in effects ──
   const setScreen = useCallback((s: FlowScreen) => {
     try { sessionStorage.setItem("pulse-screen", s); } catch {}
     setScreenState(s);
@@ -628,14 +628,14 @@ export function ScapePulseFlow() {
   const avatarConfig = avatarConfigState;
 
   const [classCodeChars, setClassCodeChars] = useState<string[]>(Array.from({ length: 6 }, () => ""));
-  const [selectedAvatar, setSelectedAvatar] = useState("ðŸ¦Š");
+  const [selectedAvatar, setSelectedAvatar] = useState("🦊");
   const [playerName, setPlayerName] = useState("Jun");
   const [squadName, setSquadName] = useState("Squad PULSE1");
   const [members, setMembers] = useState<TeamMember[]>([
-    { id: "member-jun", avatar: "ðŸ¦Š", name: "Jun", role: "Gamemaster", isLeader: true }
+    { id: "member-jun", avatar: "🦊", name: "Jun", role: "Gamemaster", isLeader: true }
   ]);
   const [expandedAddTeammate, setExpandedAddTeammate] = useState(false);
-  const [newTeammateAvatar, setNewTeammateAvatar] = useState("ðŸ™");
+  const [newTeammateAvatar, setNewTeammateAvatar] = useState("🐷");
   const [newTeammateName, setNewTeammateName] = useState("Tania");
   const [checkpointTransition, setCheckpointTransition] = useState<CheckpointTransition | null>(null);
   const [checkpointImagePlaceholder] = useState(
@@ -766,7 +766,7 @@ export function ScapePulseFlow() {
     setClassCodeChars(Array.from({ length: 6 }, () => ""));
     setPlayerName("Jun");
     setSquadName("Squad PULSE1");
-    setMembers([{ id: "member-jun", avatar: "ðŸ¦Š", name: "Jun", role: "Gamemaster", isLeader: true }]);
+    setMembers([{ id: "member-jun", avatar: "🦊", name: "Jun", role: "Gamemaster", isLeader: true }]);
   }, [clearSession]);
 
   const backToLobby = () => setScreen("lobby");
@@ -787,7 +787,7 @@ export function ScapePulseFlow() {
     );
   }, [members]);
 
-  // Wait for sessionStorage restore before rendering â€” prevents flash of intro-1
+  // Wait for sessionStorage restore before rendering — prevents flash of intro-1
   if (!hydrated) {
     return <div className="min-h-[100dvh] bg-[#050505]" />;
   }
@@ -802,7 +802,7 @@ export function ScapePulseFlow() {
           onClick={resetFlow}
           type="button"
         >
-          â†º RESTART
+           RESTART
         </button>
       ) : null}
       <main className="mx-auto min-h-[100dvh] w-full max-w-[393px] overflow-x-hidden bg-[#0a0a0a] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] md:min-h-[852px] md:rounded-[24px]">
@@ -860,7 +860,7 @@ export function ScapePulseFlow() {
         {screen === "character-selection" ? (
           <CharacterSelectionScreen
             onContinue={(animal) => {
-              const emojiMap: Record<AnimalType, string> = { pig: "ðŸ·", dog: "ðŸ¶", chicken: "ðŸ”" };
+              const emojiMap: Record<AnimalType, string> = { pig: "🐷", dog: "🐶", chicken: "🐔" };
               setSelectedAvatar(emojiMap[animal]);
               setScreen("mascot-selection");
             }}
@@ -884,7 +884,7 @@ export function ScapePulseFlow() {
             showConfetti={false}
             checkpoint={{
               name: effectiveRaceConfig.checkpoint.name,
-              hint: carPhase.intro[0],
+              hint: carPhase.intro[2],
             }}
             dialogueLines={carPhase.intro}
             onSkip={() => setScreen("ar-race")}
@@ -899,6 +899,7 @@ export function ScapePulseFlow() {
             checkpointTargetMindSrc={checkpointTargetMindSrc}
             config={effectiveRaceConfig}
             expectedTargetIndex={CHECKPOINT_TARGET_INDEX.car}
+            missionBannerText={carPhase.intro[2]}
             onBackToLobby={backToLobby}
             onCheckpointMatched={onCheckpointMatched}
           />
@@ -954,6 +955,7 @@ export function ScapePulseFlow() {
               }
             }}
             expectedTargetIndex={CHECKPOINT_TARGET_INDEX.butterfly}
+            missionBannerText={butterflyPhase.intro[1]}
             onBackToLobby={backToLobby}
             onCheckpointMatched={onCheckpointMatched}
           />
@@ -996,6 +998,7 @@ export function ScapePulseFlow() {
               }
             }}
             expectedTargetIndex={CHECKPOINT_TARGET_INDEX.monster}
+            missionBannerText={buttPhase.intro[1]}
             onBackToLobby={backToLobby}
             onCheckpointMatched={onCheckpointMatched}
           />
@@ -1006,7 +1009,7 @@ export function ScapePulseFlow() {
           <DrawingRelayFlow onComplete={() => setScreen("ar-guide-to-singing")} />
         ) : null}
 
-        {/* AR guide: leads to balcony singing station â€” uses balcony phase intro from mascot script */}
+        {/* AR guide: leads to balcony singing station — uses balcony phase intro from mascot script */}
         {screen === "ar-guide-to-singing" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}
@@ -1027,7 +1030,7 @@ export function ScapePulseFlow() {
           <SingingGameFlow onComplete={() => setScreen("ar-guide-to-celebration")} />
         ) : null}
 
-        {/* AR guide: all done â€” directs squad to the gallery for the celebratory finale */}
+        {/* AR guide: all done — directs squad to the gallery for the celebratory finale */}
         {screen === "ar-guide-to-celebration" && avatarConfig ? (
           <ArGuideScreen
             config={avatarConfig}

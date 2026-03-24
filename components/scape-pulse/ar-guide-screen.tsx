@@ -120,10 +120,25 @@ const FAREWELL_LINES: Record<AnimalType, string> = {
   chicken: "BAWK! Race you there. Last one there buys corn!",
 };
 
+// Shared AudioContext — reused across all SFX calls to avoid creating/leaking
+// a new context per sound (browsers allow max ~6 concurrent AudioContexts).
+let _sharedAudioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  try {
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === "closed") {
+      _sharedAudioCtx = new AudioContext();
+    }
+    return _sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
 function playSfx(type: SfxType): void {
   if (typeof window === "undefined") return;
   try {
-    const ctx = new AudioContext();
+    const ctx = getAudioCtx();
+    if (!ctx) return;
     const t = ctx.currentTime;
     const play = (freq0: number, freq1: number, duration: number, waveform: OscillatorType, gain: number, startAt = t) => {
       const osc = ctx.createOscillator();
@@ -177,7 +192,6 @@ function playSfx(type: SfxType): void {
       // ── Shared ───────────────────────────────────────────────────────────
       case "clink":        play(1800, 900, 0.35, "sine",    0.38); break;
     }
-    setTimeout(() => ctx.close(), 1200);
   } catch { /* AudioContext may be blocked until a user gesture; fail silently */ }
 }
 
@@ -220,8 +234,11 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
   const poofAfterWalkRef = useRef(false);
   const fadeOutRef = useRef(false);
   const fadeStartRef = useRef(-1);
+  const fadeTimeoutRef = useRef<number | null>(null);
   // Stable ref so the animation-loop closure can call setTriggerMsg without re-creating
   const setTriggerMsgRef = useRef(setTriggerMsg);
+  // Guard against calling onExit / setState after this component unmounts
+  const isMountedRef = useRef(true);
 
   // Check device support once on mount
   useEffect(() => {
@@ -235,11 +252,20 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
   // Tear down XR if the component unmounts while a session is running
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       rendererRef.current?.setAnimationLoop(null);
       sessionRef.current?.end().catch(() => {});
       poofAfterWalkRef.current = false;
       fadeOutRef.current = false;
       fadeStartRef.current = -1;
+      if (fadeTimeoutRef.current !== null) {
+        window.clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
+      // Close the shared AudioContext so it doesn't outlive the AR screen.
+      // getAudioCtx() will recreate it if needed on next use.
+      _sharedAudioCtx?.close().catch(() => {});
+      _sharedAudioCtx = null;
     };
   }, []);
 
@@ -459,9 +485,10 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
             animal.rotation.z = 0;
             if (poofAfterWalkRef.current) {
               poofAfterWalkRef.current = false;
-              window.setTimeout(() => {
+              fadeTimeoutRef.current = window.setTimeout(() => {
                 fadeOutRef.current = true;
                 fadeStartRef.current = -1;
+                fadeTimeoutRef.current = null;
               }, FADE_DELAY_AFTER_WALK * 1000);
             } else {
               // Snap pig to floor LEAD_DISTANCE ahead so lerp starts clean
@@ -587,7 +614,9 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
         renderer.dispose();
         rendererRef.current = null;
         sessionRef.current = null;
-        onExit();
+        // Guard: don't call onExit if the component already unmounted
+        // (e.g. when session.end() was triggered by the cleanup effect)
+        if (isMountedRef.current) onExit();
       });
 
       setStatus("active");
@@ -753,7 +782,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
                 onClick={() => { stopAR(); onSkip(); }}
                 type="button"
               >
-                I&apos;ve arrived at Checkpoint 1 →
+                I&apos;ve arrived at {checkpoint?.name ?? "Checkpoint 1"} →
               </button>
               <button
                 className="h-10 w-full max-w-[280px] rounded-2xl bg-black/50 text-sm font-bold text-white/60 backdrop-blur-sm"
@@ -792,7 +821,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
                 onClick={onSkip}
                 type="button"
               >
-                I&apos;ve arrived at Checkpoint 1 →
+                I&apos;ve arrived at {checkpoint?.name ?? "Checkpoint 1"} →
               </button>
               <button
                 className="h-10 w-full max-w-[280px] text-sm font-bold text-white/30"
@@ -833,7 +862,7 @@ export function ArGuideScreen({ config, onExit, onSkip, showConfetti = false, au
                 onClick={onSkip}
                 type="button"
               >
-                I&apos;ve arrived at Checkpoint 1 →
+                I&apos;ve arrived at {checkpoint?.name ?? "Checkpoint 1"} →
               </button>
               <button
                 className="h-10 w-full max-w-[320px] text-sm font-bold text-white/30"

@@ -7,6 +7,7 @@ import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FlowShell, Panel, PrimaryButton } from "@/components/drawing-game/flow/ui";
+import { compressImageFile } from "@/lib/compress-image";
 import { saveSelfieMemoryAsset } from "@/lib/memory-assets";
 import { describeAllowedUploadFormats, getUploadAcceptAttribute, getUploadMimePolicy } from "@/lib/upload-policy";
 import { uploadGameAsset } from "@/lib/upload-game-asset";
@@ -28,36 +29,45 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const verifyTimeoutRef = useRef<number | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  const previewObjectUrlRef = useRef<string>("");
 
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
   const [verificationState, setVerificationState] = useState<SelfieVerificationState>("idle");
   const [statusMessage, setStatusMessage] = useState("Take a team selfie with the car, then upload it.");
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const hasUpload = Boolean(selfieFile);
   const isVerifying = verificationState === "verifying";
   const isSuccessful = verificationState === "success";
-  const canVerify = hasUpload && !isVerifying && !isSuccessful;
+  const canVerify = hasUpload && !isVerifying && !isSuccessful && !isCompressing;
 
+  // Revoke object URL when selfieFile changes or component unmounts
   useEffect(() => {
     if (!selfieFile) {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = "";
+      }
       setSelfiePreviewUrl("");
       return;
     }
-
-    const nextObjectUrl = URL.createObjectURL(selfieFile);
-    setSelfiePreviewUrl(nextObjectUrl);
-
     return () => {
-      URL.revokeObjectURL(nextObjectUrl);
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = "";
+      }
     };
   }, [selfieFile]);
 
+  // Cancel pending verify timeout and in-flight upload on unmount
   useEffect(() => {
     return () => {
       if (verifyTimeoutRef.current !== null) {
         window.clearTimeout(verifyTimeoutRef.current);
       }
+      uploadAbortRef.current?.abort();
     };
   }, []);
 
@@ -111,9 +121,23 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
       return;
     }
 
-    setSelfieFile(nextFile);
-    setVerificationState("idle");
-    setStatusMessage("Upload complete. Tap verify when your group selfie is ready.");
+    // Show preview instantly — no blocking
+    if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
+    const immediate = URL.createObjectURL(nextFile);
+    previewObjectUrlRef.current = immediate;
+    setSelfiePreviewUrl(immediate);
+    setIsCompressing(true);
+    setStatusMessage("Processing photo...");
+
+    // Compress after paint so the preview appears without freezing
+    requestAnimationFrame(() => {
+      compressImageFile(nextFile).then((compressed) => {
+        setSelfieFile(compressed);
+        setIsCompressing(false);
+        setVerificationState("idle");
+        setStatusMessage("Upload complete. Tap verify when your group selfie is ready.");
+      });
+    });
   };
 
   const runVerification = async () => {
@@ -126,10 +150,14 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
     setVerificationState("verifying");
     setStatusMessage("Uploading selfie to bucket and verifying checkpoint...");
 
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = new AbortController();
+
     try {
       const uploadResult = await uploadGameAsset({
         assetType: "selfie",
-        file: selfieFile
+        file: selfieFile,
+        signal: uploadAbortRef.current.signal
       });
       saveSelfieMemoryAsset(uploadResult.publicUrl);
 
@@ -217,15 +245,16 @@ export function SelfieFlow({ onComplete }: { onComplete?: () => void } = {}) {
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
-              className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-[#ff6b00]/40 hover:text-white"
+              className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white/80 transition-colors hover:border-[#ff6b00]/40 hover:text-white disabled:cursor-not-allowed disabled:text-white/40"
+              disabled={isCompressing}
               onClick={openPicker}
               type="button"
             >
-              {selfieFile ? "Replace Photo" : "Upload Photo"}
+              {isCompressing ? "Processing..." : selfieFile ? "Replace Photo" : "Upload Photo"}
             </button>
             <button
               className="anim-elevate btn-fit h-11 rounded-xl border border-white/10 bg-[#111] text-sm font-bold text-white/70 transition-colors hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:text-white/20"
-              disabled={!selfieFile}
+              disabled={!selfieFile || isCompressing}
               onClick={resetUpload}
               type="button"
             >

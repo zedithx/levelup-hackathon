@@ -5,34 +5,21 @@ import type {
 } from "@/components/scape-pulse/flow/types";
 
 export const ASSETS = {
-  logoZap: "https://www.figma.com/api/mcp/asset/8b9ab8d9-9f3d-44b8-ba8d-99ba8b05f972",
-  arrowRight:
-    "https://www.figma.com/api/mcp/asset/f0932723-fe47-4f4e-a993-ed78deb0729a",
-  stepOneIcon:
-    "https://www.figma.com/api/mcp/asset/477c8aa6-0add-4990-b200-839803cd8157",
-  stepTwoIcon:
-    "https://www.figma.com/api/mcp/asset/cb90dc89-50a7-4713-95dd-eaf7a744cf56",
-  stepThreeIcon:
-    "https://www.figma.com/api/mcp/asset/269d977d-c915-49cf-9682-853b7cadc7ee",
-  stepFourIcon:
-    "https://www.figma.com/api/mcp/asset/0b8a7b52-857b-462c-806a-69ce8c26d5c1",
-  classCodeIcon:
-    "https://www.figma.com/api/mcp/asset/31d73bef-1eec-490d-92e6-87ac12f91789",
-  profileIcon:
-    "https://www.figma.com/api/mcp/asset/c252c5dc-2b00-434c-b7a1-4d20b9738a9e",
-  swordsIcon:
-    "https://www.figma.com/api/mcp/asset/c51dc71e-10f4-486e-810a-a61638ab7aeb",
-  crownIcon:
-    "https://www.figma.com/api/mcp/asset/6cb4c8a3-7d97-4bd9-ae39-55c79d080ec8",
-  phoneIcon:
-    "https://www.figma.com/api/mcp/asset/be2451f4-0ca6-4b62-8759-1361345e2351",
-  editIcon:
-    "https://www.figma.com/api/mcp/asset/66beb011-30a2-4afa-8537-9c5d7a6a24d7",
-  userPlusIcon:
-    "https://www.figma.com/api/mcp/asset/3c191494-d4b9-4f2e-82c1-e95dbdb94bca",
-  botIcon: "https://www.figma.com/api/mcp/asset/e0edd825-ac07-429b-ad7e-d578e405f4f3",
-  checkIcon:
-    "https://www.figma.com/api/mcp/asset/0444442b-f1b5-4918-8b80-e0e4d3848202"
+  logoZap:      "/icons/zap.svg",
+  arrowRight:   "/icons/arrow-right.svg",
+  stepOneIcon:  "/icons/map.svg",
+  stepTwoIcon:  "/icons/users.svg",
+  stepThreeIcon:"/icons/target.svg",
+  stepFourIcon: "/icons/trophy.svg",
+  classCodeIcon:"/icons/hash.svg",
+  profileIcon:  "/icons/user.svg",
+  swordsIcon:   "/icons/swords.svg",
+  crownIcon:    "/icons/crown.svg",
+  phoneIcon:    "/icons/phone.svg",
+  editIcon:     "/icons/edit.svg",
+  userPlusIcon: "/icons/user-plus.svg",
+  botIcon:      "/icons/bot.svg",
+  checkIcon:    "/icons/check.svg",
 } as const;
 
 export const ONBOARDING_SLIDES: OnboardingSlide[] = [

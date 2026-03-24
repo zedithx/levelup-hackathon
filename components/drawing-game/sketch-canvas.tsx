@@ -38,6 +38,7 @@ export const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(fu
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const strokeEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const configureContext = useCallback((context: CanvasRenderingContext2D) => {
     context.lineCap = "round";
@@ -109,6 +110,9 @@ export const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(fu
 
     return () => {
       window.removeEventListener("resize", syncCanvasSize);
+      if (strokeEndTimerRef.current !== null) {
+        clearTimeout(strokeEndTimerRef.current);
+      }
     };
   }, [syncCanvasSize]);
 
@@ -209,7 +213,13 @@ export const SketchCanvas = forwardRef<SketchCanvasHandle, SketchCanvasProps>(fu
     }
 
     if (onStrokeEnd) {
-      onStrokeEnd(canvas.toDataURL("image/png"));
+      // Debounce the expensive toDataURL encoding — rapid short strokes are
+      // batched into a single snapshot 80 ms after the last pointer-up.
+      if (strokeEndTimerRef.current !== null) clearTimeout(strokeEndTimerRef.current);
+      strokeEndTimerRef.current = setTimeout(() => {
+        strokeEndTimerRef.current = null;
+        if (canvasRef.current) onStrokeEnd(canvasRef.current.toDataURL("image/png"));
+      }, 80);
     }
   };
 
