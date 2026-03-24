@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { compressImageFile } from "@/lib/compress-image";
@@ -15,10 +16,12 @@ const STATION_ROUTE: Record<string, string> = {
   "3": "/singing-game",
 };
 
-export function ArCameraScreen() {
+type ArCameraScreenProps = {
+  station?: string;
+};
+
+export function ArCameraScreen({ station = "0" }: ArCameraScreenProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const station = searchParams.get("station") ?? "0";
   const sessionKey = `ar-camera-photo-${station}`;
   const nextRoute = STATION_ROUTE[station] ?? "/selfie-flow";
 
@@ -86,9 +89,18 @@ export function ArCameraScreen() {
     <div className="anim-screen-in flex min-h-[100dvh] flex-col bg-black md:min-h-[852px]">
       <div className="mx-auto flex h-[100dvh] w-full max-w-[393px] flex-col gap-3 px-4 py-4 md:h-[852px]">
 
-        <div className="overflow-hidden rounded-[20px] border border-white/10 bg-[#101010] flex-1">
+        <div className="flex-1 overflow-hidden rounded-[20px] border border-white/10 bg-[#101010]">
           {photoUrl ? (
-            <img alt="Station capture" className="h-full w-full object-cover" src={photoUrl} />
+            <div className="relative h-full w-full">
+              <Image
+                alt="Station capture"
+                className="object-cover"
+                fill
+                sizes="(max-width: 393px) 100vw, 393px"
+                src={photoUrl}
+                unoptimized
+              />
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-white/45 px-6">
               <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[0.65rem] tracking-[0.14em]">
